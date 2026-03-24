@@ -1,12 +1,39 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.21)
 
 project(LexTyp VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_AUTOMOC ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# Export compile_commands.json for clang-tidy and IDE tooling
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Optional: enable clang-tidy via CMake variable
+# Usage: cmake -DENABLE_CLANG_TIDY=ON ..
+option(ENABLE_CLANG_TIDY "Run clang-tidy during build" OFF)
+if(ENABLE_CLANG_TIDY)
+    find_program(CLANG_TIDY_EXE NAMES clang-tidy clang-tidy-18 clang-tidy-17 clang-tidy-16)
+    if(CLANG_TIDY_EXE)
+        message(STATUS "clang-tidy found: ${CLANG_TIDY_EXE}")
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+    else()
+        message(WARNING "ENABLE_CLANG_TIDY is ON but clang-tidy not found")
+    endif()
+endif()
+
+# Compiler warnings
+option(ENABLE_WARNINGS "Enable compiler warnings" ON)
+if(ENABLE_WARNINGS)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        add_compile_options(-Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor)
+    elseif(MSVC)
+        add_compile_options(/W4 /permissive-)
+    endif()
+endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Core Quick Widgets Pdf)
 

@@ -1,0 +1,203 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
+        },
+        {
+            "name": "debug",
+            "displayName": "Debug",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "release",
+            "displayName": "Release",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "relwithdebinfo",
+            "displayName": "Release with Debug Info",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
+            "name": "tidy",
+            "displayName": "Debug + clang-tidy",
+            "inherits": "debug",
+            "cacheVariables": {
+                "ENABLE_CLANG_TIDY": "ON"
+            }
+        },
+        {
+            "name": "linux-debug",
+            "displayName": "Linux Debug",
+            "inherits": "debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "generator": "Ninja"
+        },
+        {
+            "name": "linux-release",
+            "displayName": "Linux Release",
+            "inherits": "release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "generator": "Ninja"
+        },
+        {
+            "name": "linux-tidy",
+            "displayName": "Linux Debug + clang-tidy",
+            "inherits": "tidy",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "generator": "Ninja"
+        },
+        {
+            "name": "macos-debug",
+            "displayName": "macOS Debug",
+            "inherits": "debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "generator": "Ninja"
+        },
+        {
+            "name": "macos-release",
+            "displayName": "macOS Release",
+            "inherits": "release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "generator": "Ninja"
+        },
+        {
+            "name": "macos-tidy",
+            "displayName": "macOS Debug + clang-tidy",
+            "inherits": "tidy",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "generator": "Ninja"
+        },
+        {
+            "name": "windows-debug",
+            "displayName": "Windows Debug",
+            "inherits": "debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "generator": "Ninja"
+        },
+        {
+            "name": "windows-release",
+            "displayName": "Windows Release",
+            "inherits": "release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "generator": "Ninja"
+        },
+        {
+            "name": "windows-tidy",
+            "displayName": "Windows Debug + clang-tidy",
+            "inherits": "tidy",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "generator": "Ninja"
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "debug",
+            "configurePreset": "debug"
+        },
+        {
+            "name": "release",
+            "configurePreset": "release"
+        },
+        {
+            "name": "relwithdebinfo",
+            "configurePreset": "relwithdebinfo"
+        },
+        {
+            "name": "tidy",
+            "configurePreset": "tidy"
+        },
+        {
+            "name": "linux-debug",
+            "configurePreset": "linux-debug"
+        },
+        {
+            "name": "linux-release",
+            "configurePreset": "linux-release"
+        },
+        {
+            "name": "linux-tidy",
+            "configurePreset": "linux-tidy"
+        },
+        {
+            "name": "macos-debug",
+            "configurePreset": "macos-debug"
+        },
+        {
+            "name": "macos-release",
+            "configurePreset": "macos-release"
+        },
+        {
+            "name": "macos-tidy",
+            "configurePreset": "macos-tidy"
+        },
+        {
+            "name": "windows-debug",
+            "configurePreset": "windows-debug"
+        },
+        {
+            "name": "windows-release",
+            "configurePreset": "windows-release"
+        },
+        {
+            "name": "windows-tidy",
+            "configurePreset": "windows-tidy"
+        }
+    ]
+}

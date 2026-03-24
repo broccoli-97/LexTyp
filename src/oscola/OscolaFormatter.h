@@ -30,6 +30,13 @@ public:
     static QString formatBookFull(const BibEntry &entry, const QString &pinpoint);
     static QString formatBookShort(const BibEntry &entry, const QString &pinpoint, int footnoteNum);
 
+    // Academic citation formatting
+    static QString formatArticleFull(const BibEntry &entry, const QString &pinpoint);
+    static QString formatInProceedingsFull(const BibEntry &entry, const QString &pinpoint);
+    static QString formatInCollectionFull(const BibEntry &entry, const QString &pinpoint);
+    static QString formatThesisFull(const BibEntry &entry, const QString &pinpoint);
+    static QString formatGenericShort(const BibEntry &entry, const QString &pinpoint, int footnoteNum);
+
     // Ibid
     static QString formatIbid(const QString &pinpoint);
 

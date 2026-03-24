@@ -8,7 +8,7 @@
 #include <QVector>
 
 struct BibEntry {
-    QString type; // "case", "legislation", "book"
+    QString type; // BibTeX entry type: "article", "book", "inproceedings", "case", "legislation", etc.
     QString key;
     QMap<QString, QString> fields;
 

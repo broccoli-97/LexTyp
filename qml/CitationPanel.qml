@@ -20,23 +20,97 @@ Item {
     property string searchQuery: ""
     property var filteredEntries: []
 
+    readonly property var tabModel: ["All", "Cases", "Statutes", "Books", "Academic"]
+
+    function isAcademicType(t) {
+        return t !== "case" && t !== "legislation" && t !== "book"
+    }
+
+    function badgeInfo(entryType) {
+        switch (entryType) {
+        case "case":          return { label: "Case",       bg: "#FFF3E0", fg: "#E65100" }
+        case "legislation":   return { label: "Statute",    bg: "#E8F5E9", fg: "#2E7D32" }
+        case "book":          return { label: "Book",       bg: "#E3F2FD", fg: "#1565C0" }
+        case "article":       return { label: "Article",    bg: "#F3E5F5", fg: "#6A1B9A" }
+        case "inproceedings": return { label: "Conference", bg: "#FFF8E1", fg: "#F57F17" }
+        case "conference":    return { label: "Conference", bg: "#FFF8E1", fg: "#F57F17" }
+        case "incollection":  return { label: "Chapter",    bg: "#E0F2F1", fg: "#00695C" }
+        case "inbook":        return { label: "Chapter",    bg: "#E0F2F1", fg: "#00695C" }
+        case "phdthesis":     return { label: "PhD Thesis", bg: "#FCE4EC", fg: "#880E4F" }
+        case "mastersthesis": return { label: "MA Thesis",  bg: "#FCE4EC", fg: "#880E4F" }
+        case "techreport":    return { label: "Report",     bg: "#EFEBE9", fg: "#4E342E" }
+        case "misc":          return { label: "Misc",       bg: "#ECEFF1", fg: "#37474F" }
+        case "online":        return { label: "Online",     bg: "#E8EAF6", fg: "#283593" }
+        default:              return { label: entryType,    bg: "#ECEFF1", fg: "#37474F" }
+        }
+    }
+
+    function secondaryInfo(entryType, f) {
+        if (entryType === "case") {
+            var parts = []
+            if (f.year) parts.push("[" + f.year + "]")
+            if (f.court) parts.push(f.court)
+            if (f.number) parts.push(f.number)
+            return parts.join(" ")
+        }
+        if (entryType === "legislation") {
+            return f.year ? f.year : ""
+        }
+        if (entryType === "article") {
+            var aParts = []
+            if (f.author) aParts.push(f.author)
+            if (f.journal) aParts.push(f.journal)
+            if (f.volume) aParts.push("vol. " + f.volume)
+            if (f.year) aParts.push("(" + f.year + ")")
+            return aParts.join(", ")
+        }
+        if (entryType === "inproceedings" || entryType === "conference" ||
+            entryType === "incollection" || entryType === "inbook") {
+            var cParts = []
+            if (f.author) cParts.push(f.author)
+            if (f.booktitle) cParts.push("in: " + f.booktitle)
+            if (f.year) cParts.push("(" + f.year + ")")
+            return cParts.join(", ")
+        }
+        if (entryType === "phdthesis" || entryType === "mastersthesis") {
+            var tParts = []
+            if (f.author) tParts.push(f.author)
+            if (f.school) tParts.push(f.school)
+            if (f.year) tParts.push("(" + f.year + ")")
+            return tParts.join(", ")
+        }
+        // Default: book, techreport, misc, online, etc.
+        var defParts = []
+        if (f.author) defParts.push(f.author)
+        if (f.publisher) defParts.push(f.publisher)
+        if (f.year) defParts.push(f.year)
+        return defParts.join(", ")
+    }
+
     function refreshEntries() {
         var typeFilter = ""
+        var academic = false
         switch (categoryBar.currentIndex) {
-        case 0: typeFilter = "case"; break
-        case 1: typeFilter = "legislation"; break
-        case 2: typeFilter = "book"; break
+        case 0: typeFilter = ""; break
+        case 1: typeFilter = "case"; break
+        case 2: typeFilter = "legislation"; break
+        case 3: typeFilter = "book"; break
+        case 4: academic = true; break
         }
 
+        var source
         if (searchQuery.length > 0) {
-            var all = referenceLibrary.search(searchQuery)
-            if (typeFilter.length > 0) {
-                filteredEntries = all.filter(function(e) { return e.type === typeFilter })
-            } else {
-                filteredEntries = all
-            }
+            source = referenceLibrary.search(searchQuery)
         } else {
-            filteredEntries = referenceLibrary.entries(typeFilter)
+            source = referenceLibrary.entries(academic ? "" : typeFilter)
+        }
+
+        if (academic) {
+            filteredEntries = source.filter(function(e) { return isAcademicType(e.type) })
+        } else if (typeFilter.length > 0 && searchQuery.length > 0) {
+            filteredEntries = source.filter(function(e) { return e.type === typeFilter })
+        } else {
+            filteredEntries = source
         }
     }
 
@@ -104,50 +178,23 @@ Item {
                 }
             }
 
-            TabButton {
-                text: "Cases"
-                width: implicitWidth
-                font.pixelSize: 11
-                font.bold: categoryBar.currentIndex === 0
-                background: Rectangle {
-                    color: "transparent"
-                    Rectangle {
-                        anchors.bottom: parent.bottom
-                        width: parent.width
-                        height: 2
-                        color: categoryBar.currentIndex === 0 ? citationPanel.accentColor : "transparent"
-                    }
-                }
-            }
-
-            TabButton {
-                text: "Statutes"
-                width: implicitWidth
-                font.pixelSize: 11
-                font.bold: categoryBar.currentIndex === 1
-                background: Rectangle {
-                    color: "transparent"
-                    Rectangle {
-                        anchors.bottom: parent.bottom
-                        width: parent.width
-                        height: 2
-                        color: categoryBar.currentIndex === 1 ? citationPanel.accentColor : "transparent"
-                    }
-                }
-            }
-
-            TabButton {
-                text: "Books"
-                width: implicitWidth
-                font.pixelSize: 11
-                font.bold: categoryBar.currentIndex === 2
-                background: Rectangle {
-                    color: "transparent"
-                    Rectangle {
-                        anchors.bottom: parent.bottom
-                        width: parent.width
-                        height: 2
-                        color: categoryBar.currentIndex === 2 ? citationPanel.accentColor : "transparent"
+            Repeater {
+                model: citationPanel.tabModel
+                TabButton {
+                    required property string modelData
+                    required property int index
+                    text: modelData
+                    width: implicitWidth
+                    font.pixelSize: 11
+                    font.bold: categoryBar.currentIndex === index
+                    background: Rectangle {
+                        color: "transparent"
+                        Rectangle {
+                            anchors.bottom: parent.bottom
+                            width: parent.width
+                            height: 2
+                            color: categoryBar.currentIndex === index ? citationPanel.accentColor : "transparent"
+                        }
                     }
                 }
             }
@@ -188,30 +235,15 @@ Item {
                         Layout.preferredHeight: 18
                         Layout.preferredWidth: typeBadgeText.implicitWidth + 12
                         radius: 3
-                        color: {
-                            var t = modelData.type
-                            if (t === "case") return "#FFF3E0"
-                            if (t === "legislation") return "#E8F5E9"
-                            return "#E3F2FD"
-                        }
+                        color: citationPanel.badgeInfo(modelData.type).bg
 
                         Label {
                             id: typeBadgeText
                             anchors.centerIn: parent
-                            text: {
-                                var t = modelData.type
-                                if (t === "case") return "Case"
-                                if (t === "legislation") return "Statute"
-                                return "Book"
-                            }
+                            text: citationPanel.badgeInfo(modelData.type).label
                             font.pixelSize: 10
                             font.bold: true
-                            color: {
-                                var t = modelData.type
-                                if (t === "case") return "#E65100"
-                                if (t === "legislation") return "#2E7D32"
-                                return "#1565C0"
-                            }
+                            color: citationPanel.badgeInfo(modelData.type).fg
                         }
                     }
 
@@ -234,25 +266,7 @@ Item {
                     Label {
                         Layout.fillWidth: true
                         visible: text.length > 0
-                        text: {
-                            var f = modelData.fields
-                            if (modelData.type === "case") {
-                                var parts = []
-                                if (f.year) parts.push("[" + f.year + "]")
-                                if (f.court) parts.push(f.court)
-                                if (f.number) parts.push(f.number)
-                                return parts.join(" ")
-                            }
-                            if (modelData.type === "legislation") {
-                                return f.year ? f.year : ""
-                            }
-                            // book
-                            var bookParts = []
-                            if (f.author) bookParts.push(f.author)
-                            if (f.publisher) bookParts.push(f.publisher)
-                            if (f.year) bookParts.push(f.year)
-                            return bookParts.join(", ")
-                        }
+                        text: citationPanel.secondaryInfo(modelData.type, modelData.fields)
                         font.pixelSize: 10
                         elide: Text.ElideRight
                         color: "#757575"

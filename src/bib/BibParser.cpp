@@ -49,18 +49,57 @@ QVector<BibEntry> BibParser::parse(const QString &filePath)
 
         QString fieldBlock = content.mid(i, entryEnd - i - 1).trimmed();
 
-        // Parse fields: name = {value} or name = "value" or name = number
-        QRegularExpression fieldRe(QStringLiteral("(\\w+)\\s*=\\s*(?:\\{([^}]*)\\}|\"([^\"]*)\"|([\\w\\d]+))"));
-        auto fieldIt = fieldRe.globalMatch(fieldBlock);
-        while (fieldIt.hasNext()) {
-            auto fm = fieldIt.next();
+        // Parse fields with brace-depth-aware value extraction.
+        // Handles: name = {value with {nested} braces}, name = "quoted", name = bare
+        int fpos = 0;
+        QRegularExpression fieldNameRe(QStringLiteral("(\\w+)\\s*=\\s*"));
+        while (fpos < fieldBlock.size()) {
+            auto fm = fieldNameRe.match(fieldBlock, fpos);
+            if (!fm.hasMatch())
+                break;
+
             QString fieldName = fm.captured(1).toLower();
-            QString fieldValue = fm.captured(2);
-            if (fieldValue.isEmpty())
-                fieldValue = fm.captured(3);
-            if (fieldValue.isEmpty())
-                fieldValue = fm.captured(4);
+            int valueStart = fm.capturedEnd();
+            QString fieldValue;
+
+            if (valueStart < fieldBlock.size() && fieldBlock[valueStart] == QLatin1Char('{')) {
+                // Brace-delimited value: track depth to find matching close
+                int vDepth = 1;
+                int vEnd = valueStart + 1;
+                for (; vEnd < fieldBlock.size() && vDepth > 0; ++vEnd) {
+                    if (fieldBlock[vEnd] == QLatin1Char('{'))
+                        ++vDepth;
+                    else if (fieldBlock[vEnd] == QLatin1Char('}'))
+                        --vDepth;
+                }
+                fieldValue = fieldBlock.mid(valueStart + 1, vEnd - valueStart - 2);
+                fpos = vEnd;
+            } else if (valueStart < fieldBlock.size() && fieldBlock[valueStart] == QLatin1Char('"')) {
+                // Quote-delimited value
+                int qEnd = fieldBlock.indexOf(QLatin1Char('"'), valueStart + 1);
+                if (qEnd < 0)
+                    qEnd = fieldBlock.size();
+                fieldValue = fieldBlock.mid(valueStart + 1, qEnd - valueStart - 1);
+                fpos = qEnd + 1;
+            } else {
+                // Bare value (number or macro)
+                QRegularExpression bareRe(QStringLiteral("[\\w\\d.+-]+"));
+                auto bareMatch = bareRe.match(fieldBlock, valueStart);
+                if (bareMatch.hasMatch() && bareMatch.capturedStart() == valueStart) {
+                    fieldValue = bareMatch.captured(0);
+                    fpos = bareMatch.capturedEnd();
+                } else {
+                    fpos = valueStart + 1;
+                    continue;
+                }
+            }
+
             entry.fields[fieldName] = stripBraces(fieldValue);
+
+            // Skip trailing comma/whitespace between fields
+            while (fpos < fieldBlock.size() &&
+                   (fieldBlock[fpos] == QLatin1Char(',') || fieldBlock[fpos].isSpace()))
+                ++fpos;
         }
 
         entries.append(entry);

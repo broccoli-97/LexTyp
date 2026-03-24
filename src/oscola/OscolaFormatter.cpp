@@ -20,7 +20,10 @@ QString OscolaFormatter::formatFootnote(const BibEntry &entry,
             if (entry.type == QStringLiteral("book"))
                 return formatBookShort(entry, pinpoint, prev.footnoteNumber);
             // Legislation doesn't change between first and subsequent
-            return formatLegislationFull(entry, pinpoint);
+            if (entry.type == QStringLiteral("legislation"))
+                return formatLegislationFull(entry, pinpoint);
+            // All other types use generic short form: Surname (n X) pinpoint
+            return formatGenericShort(entry, pinpoint, prev.footnoteNumber);
         }
     }
 
@@ -32,6 +35,17 @@ QString OscolaFormatter::formatFootnote(const BibEntry &entry,
         return formatLegislationFull(entry, pinpoint);
     if (entry.type == QStringLiteral("book"))
         return formatBookFull(entry, pinpoint);
+    if (entry.type == QStringLiteral("article"))
+        return formatArticleFull(entry, pinpoint);
+    if (entry.type == QStringLiteral("inproceedings") ||
+        entry.type == QStringLiteral("conference"))
+        return formatInProceedingsFull(entry, pinpoint);
+    if (entry.type == QStringLiteral("incollection") ||
+        entry.type == QStringLiteral("inbook"))
+        return formatInCollectionFull(entry, pinpoint);
+    if (entry.type == QStringLiteral("phdthesis") ||
+        entry.type == QStringLiteral("mastersthesis"))
+        return formatThesisFull(entry, pinpoint);
 
     // Fallback for unknown types
     QString text = entry.field(QStringLiteral("author"));
@@ -144,6 +158,175 @@ QString OscolaFormatter::formatBookFull(const BibEntry &entry, const QString &pi
 
 // OSCOLA book short: Author surname (n X) pinpoint
 QString OscolaFormatter::formatBookShort(const BibEntry &entry, const QString &pinpoint, int footnoteNum)
+{
+    QString author = shortAuthor(entry.field(QStringLiteral("author")));
+
+    QString result = author;
+    result += QStringLiteral(" (n ") + QString::number(footnoteNum) + QStringLiteral(")");
+
+    if (!pinpoint.isEmpty())
+        result += QStringLiteral(" ") + pinpoint;
+
+    return result;
+}
+
+// Article: Author, 'Title' (Year) Volume Journal Pages
+QString OscolaFormatter::formatArticleFull(const BibEntry &entry, const QString &pinpoint)
+{
+    QString author = entry.field(QStringLiteral("author"));
+    QString title = entry.field(QStringLiteral("title"));
+    QString journal = entry.field(QStringLiteral("journal"));
+    QString volume = entry.field(QStringLiteral("volume"));
+    QString pages = entry.field(QStringLiteral("pages"));
+    QString year = entry.field(QStringLiteral("year"));
+
+    QString result;
+    if (!author.isEmpty())
+        result += author + QStringLiteral(", ");
+
+    if (!title.isEmpty())
+        result += QStringLiteral("'") + title + QStringLiteral("'");
+
+    if (!year.isEmpty())
+        result += QStringLiteral(" (") + year + QStringLiteral(")");
+
+    if (!volume.isEmpty())
+        result += QStringLiteral(" ") + volume;
+
+    if (!journal.isEmpty())
+        result += QStringLiteral(" ") + italicize(journal);
+
+    if (!pages.isEmpty())
+        result += QStringLiteral(" ") + pages;
+
+    if (!pinpoint.isEmpty())
+        result += QStringLiteral(", ") + pinpoint;
+
+    return result;
+}
+
+// Conference/proceedings: Author, 'Title' in _BookTitle_ (Publisher Year) Pages
+QString OscolaFormatter::formatInProceedingsFull(const BibEntry &entry, const QString &pinpoint)
+{
+    QString author = entry.field(QStringLiteral("author"));
+    QString title = entry.field(QStringLiteral("title"));
+    QString booktitle = entry.field(QStringLiteral("booktitle"));
+    QString publisher = entry.field(QStringLiteral("publisher"));
+    QString year = entry.field(QStringLiteral("year"));
+    QString pages = entry.field(QStringLiteral("pages"));
+
+    QString result;
+    if (!author.isEmpty())
+        result += author + QStringLiteral(", ");
+
+    if (!title.isEmpty())
+        result += QStringLiteral("'") + title + QStringLiteral("'");
+
+    if (!booktitle.isEmpty())
+        result += QStringLiteral(" in ") + italicize(booktitle);
+
+    if (!publisher.isEmpty() || !year.isEmpty()) {
+        result += QStringLiteral(" (");
+        if (!publisher.isEmpty())
+            result += publisher;
+        if (!publisher.isEmpty() && !year.isEmpty())
+            result += QStringLiteral(" ");
+        if (!year.isEmpty())
+            result += year;
+        result += QStringLiteral(")");
+    }
+
+    if (!pages.isEmpty())
+        result += QStringLiteral(" ") + pages;
+
+    if (!pinpoint.isEmpty())
+        result += QStringLiteral(", ") + pinpoint;
+
+    return result;
+}
+
+// Book chapter/collection: Author, 'Title' in Editor (ed), _BookTitle_ (Publisher Year) Pages
+QString OscolaFormatter::formatInCollectionFull(const BibEntry &entry, const QString &pinpoint)
+{
+    QString author = entry.field(QStringLiteral("author"));
+    QString title = entry.field(QStringLiteral("title"));
+    QString editor = entry.field(QStringLiteral("editor"));
+    QString booktitle = entry.field(QStringLiteral("booktitle"));
+    QString publisher = entry.field(QStringLiteral("publisher"));
+    QString year = entry.field(QStringLiteral("year"));
+    QString pages = entry.field(QStringLiteral("pages"));
+
+    QString result;
+    if (!author.isEmpty())
+        result += author + QStringLiteral(", ");
+
+    if (!title.isEmpty())
+        result += QStringLiteral("'") + title + QStringLiteral("'");
+
+    if (!editor.isEmpty())
+        result += QStringLiteral(" in ") + editor + QStringLiteral(" (ed), ");
+    else if (!booktitle.isEmpty())
+        result += QStringLiteral(" in ");
+
+    if (!booktitle.isEmpty())
+        result += italicize(booktitle);
+
+    if (!publisher.isEmpty() || !year.isEmpty()) {
+        result += QStringLiteral(" (");
+        if (!publisher.isEmpty())
+            result += publisher;
+        if (!publisher.isEmpty() && !year.isEmpty())
+            result += QStringLiteral(" ");
+        if (!year.isEmpty())
+            result += year;
+        result += QStringLiteral(")");
+    }
+
+    if (!pages.isEmpty())
+        result += QStringLiteral(" ") + pages;
+
+    if (!pinpoint.isEmpty())
+        result += QStringLiteral(", ") + pinpoint;
+
+    return result;
+}
+
+// Thesis: Author, 'Title' (type, School Year)
+QString OscolaFormatter::formatThesisFull(const BibEntry &entry, const QString &pinpoint)
+{
+    QString author = entry.field(QStringLiteral("author"));
+    QString title = entry.field(QStringLiteral("title"));
+    QString school = entry.field(QStringLiteral("school"));
+    QString year = entry.field(QStringLiteral("year"));
+
+    QString thesisType;
+    if (entry.type == QStringLiteral("phdthesis"))
+        thesisType = QStringLiteral("PhD thesis");
+    else
+        thesisType = QStringLiteral("MA thesis");
+
+    QString result;
+    if (!author.isEmpty())
+        result += author + QStringLiteral(", ");
+
+    if (!title.isEmpty())
+        result += QStringLiteral("'") + title + QStringLiteral("'");
+
+    result += QStringLiteral(" (") + thesisType;
+    if (!school.isEmpty())
+        result += QStringLiteral(", ") + school;
+    if (!year.isEmpty())
+        result += QStringLiteral(" ") + year;
+    result += QStringLiteral(")");
+
+    if (!pinpoint.isEmpty())
+        result += QStringLiteral(" ") + pinpoint;
+
+    return result;
+}
+
+// Generic short form for academic types: Surname (n X) pinpoint
+QString OscolaFormatter::formatGenericShort(const BibEntry &entry, const QString &pinpoint, int footnoteNum)
 {
     QString author = shortAuthor(entry.field(QStringLiteral("author")));
 
