@@ -21,6 +21,9 @@ public:
     QUuid id() const { return m_id; }
     NodeType type() const { return m_type; }
 
+    template<typename T> T *as() { return dynamic_cast<T*>(this); }
+    template<typename T> const T *as() const { return dynamic_cast<const T*>(this); }
+
     virtual QString content() const = 0;
     virtual void setContent(const QString &text) = 0;
 

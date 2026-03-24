@@ -3,21 +3,25 @@
 
 #include <QString>
 #include <QVector>
-#include "bib/BibParser.h"
+#include "bib/BibEntry.h"
+#include "citation/CitationFormatter.h"
 
-struct CitationHistoryEntry {
-    QString key;
-    int footnoteNumber;
-};
-
-class OscolaFormatter
+class OscolaFormatter : public CitationFormatter
 {
 public:
-    // Top-level: determines full/ibid/short form and returns formatted footnote text
-    static QString formatFootnote(const BibEntry &entry,
-                                  const QString &pinpoint,
-                                  const QVector<CitationHistoryEntry> &history,
-                                  int currentFootnoteNumber);
+    // Virtual override — delegates to the static implementation
+    QString formatFootnote(const BibEntry &entry,
+                           const QString &pinpoint,
+                           const QVector<CitationHistoryEntry> &history,
+                           int currentFootnoteNumber) const override;
+
+    QString styleName() const override { return QStringLiteral("oscola"); }
+
+    // Static implementation (preserved for backwards compatibility)
+    static QString formatFootnoteStatic(const BibEntry &entry,
+                                        const QString &pinpoint,
+                                        const QVector<CitationHistoryEntry> &history,
+                                        int currentFootnoteNumber);
 
     // Case formatting
     static QString formatCaseFull(const BibEntry &entry, const QString &pinpoint);
@@ -39,10 +43,6 @@ public:
 
     // Ibid
     static QString formatIbid(const QString &pinpoint);
-
-private:
-    static QString shortAuthor(const QString &author);
-    static QString italicize(const QString &text);
 };
 
 #endif // OSCOLAFORMATTER_H

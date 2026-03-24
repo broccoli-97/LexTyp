@@ -16,7 +16,8 @@ public:
 
     void setDocument(QPdfDocument *doc);
 
-    static PdfPageImageProvider *instance();
+    static PdfPageImageProvider *globalInstance();
+    static void setGlobalInstance(PdfPageImageProvider *provider);
 
 private:
     QPdfDocument *m_doc = nullptr;

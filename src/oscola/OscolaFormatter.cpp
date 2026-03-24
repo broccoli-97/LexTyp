@@ -3,7 +3,15 @@
 QString OscolaFormatter::formatFootnote(const BibEntry &entry,
                                         const QString &pinpoint,
                                         const QVector<CitationHistoryEntry> &history,
-                                        int currentFootnoteNumber)
+                                        int currentFootnoteNumber) const
+{
+    return formatFootnoteStatic(entry, pinpoint, history, currentFootnoteNumber);
+}
+
+QString OscolaFormatter::formatFootnoteStatic(const BibEntry &entry,
+                                               const QString &pinpoint,
+                                               const QVector<CitationHistoryEntry> &history,
+                                               int currentFootnoteNumber)
 {
     if (entry.key.isEmpty())
         return QStringLiteral("[unknown reference]");
@@ -51,7 +59,7 @@ QString OscolaFormatter::formatFootnote(const BibEntry &entry,
     QString text = entry.field(QStringLiteral("author"));
     if (!text.isEmpty())
         text += QStringLiteral(", ");
-    text += italicize(entry.field(QStringLiteral("title")));
+    text += CitationFormatter::italicize(entry.field(QStringLiteral("title")));
     if (!pinpoint.isEmpty())
         text += QStringLiteral(" ") + pinpoint;
     return text;
@@ -65,7 +73,7 @@ QString OscolaFormatter::formatCaseFull(const BibEntry &entry, const QString &pi
     if (parties.isEmpty())
         parties = entry.field(QStringLiteral("title"));
 
-    QString result = italicize(parties);
+    QString result = CitationFormatter::italicize(parties);
 
     QString year = entry.field(QStringLiteral("year"));
     if (!year.isEmpty())
@@ -98,7 +106,7 @@ QString OscolaFormatter::formatCaseShort(const BibEntry &entry, const QString &p
     if (vPos > 0)
         shortName = parties.left(vPos);
 
-    QString result = italicize(shortName);
+    QString result = CitationFormatter::italicize(shortName);
     result += QStringLiteral(" (n ") + QString::number(footnoteNum) + QStringLiteral(")");
 
     if (!pinpoint.isEmpty())
@@ -135,7 +143,7 @@ QString OscolaFormatter::formatBookFull(const BibEntry &entry, const QString &pi
     if (!author.isEmpty())
         result += author + QStringLiteral(", ");
 
-    result += italicize(title);
+    result += CitationFormatter::italicize(title);
 
     // (Publisher Year)
     if (!publisher.isEmpty() || !year.isEmpty()) {
@@ -159,7 +167,7 @@ QString OscolaFormatter::formatBookFull(const BibEntry &entry, const QString &pi
 // OSCOLA book short: Author surname (n X) pinpoint
 QString OscolaFormatter::formatBookShort(const BibEntry &entry, const QString &pinpoint, int footnoteNum)
 {
-    QString author = shortAuthor(entry.field(QStringLiteral("author")));
+    QString author = CitationFormatter::shortAuthor(entry.field(QStringLiteral("author")));
 
     QString result = author;
     result += QStringLiteral(" (n ") + QString::number(footnoteNum) + QStringLiteral(")");
@@ -194,7 +202,7 @@ QString OscolaFormatter::formatArticleFull(const BibEntry &entry, const QString 
         result += QStringLiteral(" ") + volume;
 
     if (!journal.isEmpty())
-        result += QStringLiteral(" ") + italicize(journal);
+        result += QStringLiteral(" ") + CitationFormatter::italicize(journal);
 
     if (!pages.isEmpty())
         result += QStringLiteral(" ") + pages;
@@ -223,7 +231,7 @@ QString OscolaFormatter::formatInProceedingsFull(const BibEntry &entry, const QS
         result += QStringLiteral("'") + title + QStringLiteral("'");
 
     if (!booktitle.isEmpty())
-        result += QStringLiteral(" in ") + italicize(booktitle);
+        result += QStringLiteral(" in ") + CitationFormatter::italicize(booktitle);
 
     if (!publisher.isEmpty() || !year.isEmpty()) {
         result += QStringLiteral(" (");
@@ -269,7 +277,7 @@ QString OscolaFormatter::formatInCollectionFull(const BibEntry &entry, const QSt
         result += QStringLiteral(" in ");
 
     if (!booktitle.isEmpty())
-        result += italicize(booktitle);
+        result += CitationFormatter::italicize(booktitle);
 
     if (!publisher.isEmpty() || !year.isEmpty()) {
         result += QStringLiteral(" (");
@@ -328,7 +336,7 @@ QString OscolaFormatter::formatThesisFull(const BibEntry &entry, const QString &
 // Generic short form for academic types: Surname (n X) pinpoint
 QString OscolaFormatter::formatGenericShort(const BibEntry &entry, const QString &pinpoint, int footnoteNum)
 {
-    QString author = shortAuthor(entry.field(QStringLiteral("author")));
+    QString author = CitationFormatter::shortAuthor(entry.field(QStringLiteral("author")));
 
     QString result = author;
     result += QStringLiteral(" (n ") + QString::number(footnoteNum) + QStringLiteral(")");
@@ -344,26 +352,4 @@ QString OscolaFormatter::formatIbid(const QString &pinpoint)
     if (pinpoint.isEmpty())
         return QStringLiteral("ibid");
     return QStringLiteral("ibid, ") + pinpoint;
-}
-
-// Extract last name from "First Last" or "Last, First" format
-QString OscolaFormatter::shortAuthor(const QString &author)
-{
-    if (author.contains(QStringLiteral(", "))) {
-        // "Last, First" format
-        return author.left(author.indexOf(QStringLiteral(", ")));
-    }
-    // "First Last" format - take last word
-    int lastSpace = author.lastIndexOf(QLatin1Char(' '));
-    if (lastSpace > 0)
-        return author.mid(lastSpace + 1);
-    return author;
-}
-
-// Typst italic markup
-QString OscolaFormatter::italicize(const QString &text)
-{
-    if (text.isEmpty())
-        return text;
-    return QStringLiteral("_") + text + QStringLiteral("_");
 }

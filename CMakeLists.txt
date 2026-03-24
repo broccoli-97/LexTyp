@@ -44,7 +44,16 @@ qt_add_executable(LexTyp
     src/TypstSerializer.cpp
     src/PdfManager.cpp
     src/bib/BibParser.cpp
+    src/bib/ReferenceLibrary.cpp
     src/oscola/OscolaFormatter.cpp
+    src/citation/CitationFormatter.cpp
+    src/citation/TexTemplateParser.cpp
+    src/citation/CitationStyleRegistry.cpp
+    src/citation/ApaFormatter.cpp
+    src/citation/HarvardFormatter.cpp
+    src/citation/ChicagoFormatter.cpp
+    src/citation/IeeeFormatter.cpp
+    src/citation/PlainFormatter.cpp
 )
 
 qt_add_qml_module(LexTyp
@@ -68,6 +77,7 @@ target_include_directories(LexTyp PRIVATE
     ${CMAKE_SOURCE_DIR}/src/ast
     ${CMAKE_SOURCE_DIR}/src/bib
     ${CMAKE_SOURCE_DIR}/src/oscola
+    ${CMAKE_SOURCE_DIR}/src/citation
 )
 
 target_link_libraries(LexTyp PRIVATE

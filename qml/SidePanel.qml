@@ -207,6 +207,7 @@ Item {
                 CitationPanel {
                     anchors.fill: parent
                     referenceLibrary: sidePanel.referenceLibrary
+                    documentModel: documentModel
 
                     onCitationInsertRequested: function(key) {
                         if (root.activeParagraphIndex >= 0) {

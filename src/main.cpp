@@ -15,7 +15,9 @@ int main(int argc, char *argv[])
     engine.addImportPath(QStringLiteral("qrc:/"));
 
     // Register PDF page image provider (PdfManager will connect its document)
-    engine.addImageProvider(QStringLiteral("pdf"), new PdfPageImageProvider);
+    auto *pdfProvider = new PdfPageImageProvider;
+    PdfPageImageProvider::setGlobalInstance(pdfProvider);
+    engine.addImageProvider(QStringLiteral("pdf"), pdfProvider);
 
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app,

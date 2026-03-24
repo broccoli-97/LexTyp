@@ -5,13 +5,14 @@
 #include "ast/ParagraphNode.h"
 #include "ast/CitationNode.h"
 #include "ast/SectionNode.h"
-#include "bib/BibParser.h"
-#include "oscola/OscolaFormatter.h"
+#include "bib/ReferenceLibrary.h"
+#include "citation/CitationFormatter.h"
 
 #include <QRegularExpression>
 
 static QString processInlineCitations(const QString &text,
-                                      ReferenceLibrary *library,
+                                      const ReferenceLibrary *library,
+                                      const CitationFormatter &formatter,
                                       QVector<CitationHistoryEntry> &citationHistory,
                                       int &footnoteCounter)
 {
@@ -31,7 +32,7 @@ static QString processInlineCitations(const QString &text,
             BibEntry entry = library->findEntry(key);
             if (!entry.key.isEmpty()) {
                 ++footnoteCounter;
-                QString footnoteText = OscolaFormatter::formatFootnote(
+                QString footnoteText = formatter.formatFootnote(
                     entry, QString(), citationHistory, footnoteCounter);
                 result += QStringLiteral("#footnote[") + footnoteText + QStringLiteral("]");
                 citationHistory.append({key, footnoteCounter});
@@ -52,7 +53,8 @@ static QString processInlineCitations(const QString &text,
 }
 
 QString TypstSerializer::serialize(const QVector<std::shared_ptr<DocumentNode>> &nodes,
-                                   ReferenceLibrary *library)
+                                   const ReferenceLibrary *library,
+                                   const CitationFormatter &formatter)
 {
     QString output;
     QVector<CitationHistoryEntry> citationHistory;
@@ -61,7 +63,8 @@ QString TypstSerializer::serialize(const QVector<std::shared_ptr<DocumentNode>> 
     for (const auto &node : nodes) {
         switch (node->type()) {
         case NodeType::Title: {
-            auto *title = static_cast<TitleNode *>(node.get());
+            auto *title = node->as<TitleNode>();
+            if (!title) break;
             // Typst heading: "= " for level 1, "== " for level 2, etc.
             output += QString(title->level(), QLatin1Char('='));
             output += QLatin1Char(' ');
@@ -72,22 +75,22 @@ QString TypstSerializer::serialize(const QVector<std::shared_ptr<DocumentNode>> 
         case NodeType::Paragraph: {
             QString content = node->content();
             if (content.contains(QLatin1Char('@'))) {
-                content = processInlineCitations(content, library, citationHistory, footnoteCounter);
+                content = processInlineCitations(content, library, formatter, citationHistory, footnoteCounter);
             }
             output += content;
             output += QStringLiteral("\n\n");
             break;
         }
         case NodeType::Citation: {
-            auto *cite = static_cast<CitationNode *>(node.get());
+            auto *cite = node->as<CitationNode>();
+            if (!cite) break;
             ++footnoteCounter;
 
             if (library && !cite->key().isEmpty()) {
                 BibEntry entry = library->findEntry(cite->key());
                 if (!entry.key.isEmpty()) {
-                    // Use OSCOLA formatting with footnote
                     QString pinpoint = cite->suffix();
-                    QString footnoteText = OscolaFormatter::formatFootnote(
+                    QString footnoteText = formatter.formatFootnote(
                         entry, pinpoint, citationHistory, footnoteCounter);
 
                     if (!cite->prefix().isEmpty()) {

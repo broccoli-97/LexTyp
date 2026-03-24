@@ -10,12 +10,16 @@ PdfPageImageProvider *PdfPageImageProvider::s_instance = nullptr;
 PdfPageImageProvider::PdfPageImageProvider()
     : QQuickImageProvider(QQuickImageProvider::Image)
 {
-    s_instance = this;
 }
 
-PdfPageImageProvider *PdfPageImageProvider::instance()
+PdfPageImageProvider *PdfPageImageProvider::globalInstance()
 {
     return s_instance;
+}
+
+void PdfPageImageProvider::setGlobalInstance(PdfPageImageProvider *provider)
+{
+    s_instance = provider;
 }
 
 QImage PdfPageImageProvider::requestImage(const QString &id, QSize *size,
@@ -67,8 +71,10 @@ PdfManager::PdfManager(QObject *parent)
     : QObject(parent)
 {
     // Connect this instance's document to the shared image provider
-    if (auto *provider = PdfPageImageProvider::instance())
+    if (auto *provider = PdfPageImageProvider::globalInstance())
         provider->setDocument(&m_document);
+    else
+        qWarning("PdfManager: PdfPageImageProvider global instance not set");
 
     connect(&m_document, &QPdfDocument::pageCountChanged, this, [this]() {
         emit pageCountChanged();

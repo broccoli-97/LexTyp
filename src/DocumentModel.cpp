@@ -6,14 +6,20 @@
 #include "ast/SectionNode.h"
 #include "bib/BibParser.h"
 #include "TypstSerializer.h"
+#include "citation/CitationFormatter.h"
+#include "citation/CitationStyleRegistry.h"
+#include "citation/TexTemplateParser.h"
 
 DocumentModel::DocumentModel(QObject *parent)
     : QAbstractListModel(parent)
+    , m_registry(&CitationStyleRegistry::instance())
+    , m_formatter(m_registry->defaultFormatter())
 {
     m_compileTimer.setSingleShot(true);
     m_compileTimer.setInterval(400);
     connect(&m_compileTimer, &QTimer::timeout, this, [this]() {
-        QString source = TypstSerializer::serialize(m_nodes, m_library);
+        Q_ASSERT(m_formatter);
+        QString source = TypstSerializer::serialize(m_nodes, m_library, *m_formatter);
         if (source == m_lastSource)
             return;
         m_lastSource = source;
@@ -47,16 +53,16 @@ QVariant DocumentModel::data(const QModelIndex &index, int role) const
     case NodeIdRole:
         return node->id().toString(QUuid::WithoutBraces);
     case LevelRole:
-        if (node->type() == NodeType::Title)
-            return static_cast<TitleNode *>(node.get())->level();
+        if (auto *title = node->as<TitleNode>())
+            return title->level();
         return 0;
     case PrefixRole:
-        if (node->type() == NodeType::Citation)
-            return static_cast<CitationNode *>(node.get())->prefix();
+        if (auto *cite = node->as<CitationNode>())
+            return cite->prefix();
         return QString();
     case SuffixRole:
-        if (node->type() == NodeType::Citation)
-            return static_cast<CitationNode *>(node.get())->suffix();
+        if (auto *cite = node->as<CitationNode>())
+            return cite->suffix();
         return QString();
     }
 
@@ -75,22 +81,22 @@ bool DocumentModel::setData(const QModelIndex &index, const QVariant &value, int
         node->setContent(value.toString());
         break;
     case LevelRole:
-        if (node->type() == NodeType::Title) {
-            static_cast<TitleNode *>(node.get())->setLevel(value.toInt());
+        if (auto *title = node->as<TitleNode>()) {
+            title->setLevel(value.toInt());
         } else {
             return false;
         }
         break;
     case PrefixRole:
-        if (node->type() == NodeType::Citation) {
-            static_cast<CitationNode *>(node.get())->setPrefix(value.toString());
+        if (auto *cite = node->as<CitationNode>()) {
+            cite->setPrefix(value.toString());
         } else {
             return false;
         }
         break;
     case SuffixRole:
-        if (node->type() == NodeType::Citation) {
-            static_cast<CitationNode *>(node.get())->setSuffix(value.toString());
+        if (auto *cite = node->as<CitationNode>()) {
+            cite->setSuffix(value.toString());
         } else {
             return false;
         }
@@ -256,6 +262,34 @@ void DocumentModel::insertInlineCitation(int row, int cursorPos, const QString &
 void DocumentModel::scheduleSerialization()
 {
     m_compileTimer.start();
+}
+
+void DocumentModel::loadTexTemplate(const QUrl &fileUrl)
+{
+    QString filePath = fileUrl.toLocalFile();
+    if (filePath.isEmpty())
+        return;
+
+    QString style = TexTemplateParser::extractBibliographyStyle(filePath);
+    if (!style.isEmpty())
+        setCitationStyle(style);
+}
+
+QString DocumentModel::citationStyle() const
+{
+    return m_citationStyle;
+}
+
+void DocumentModel::setCitationStyle(const QString &styleName)
+{
+    QString normalized = styleName.toLower().trimmed();
+    if (normalized == m_citationStyle)
+        return;
+
+    m_citationStyle = normalized;
+    m_formatter = m_registry->formatter(normalized);
+    emit citationStyleChanged();
+    scheduleSerialization();
 }
 
 std::shared_ptr<DocumentNode> DocumentModel::createNode(NodeType type) const

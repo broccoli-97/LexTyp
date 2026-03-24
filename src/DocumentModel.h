@@ -8,12 +8,16 @@
 #include <memory>
 
 #include "ast/DocumentNode.h"
-#include "bib/BibParser.h"
+#include "bib/ReferenceLibrary.h"
+
+class CitationFormatter;
+class CitationStyleRegistry;
 
 class DocumentModel : public QAbstractListModel
 {
     Q_OBJECT
     QML_ELEMENT
+    Q_PROPERTY(QString citationStyle READ citationStyle WRITE setCitationStyle NOTIFY citationStyleChanged)
 
 public:
     enum Roles {
@@ -48,8 +52,13 @@ public:
     Q_INVOKABLE void insertInlineCitation(int row, int cursorPos, const QString &key);
     Q_INVOKABLE void setReferenceLibrary(ReferenceLibrary *library);
 
+    Q_INVOKABLE void loadTexTemplate(const QUrl &fileUrl);
+    QString citationStyle() const;
+    Q_INVOKABLE void setCitationStyle(const QString &styleName);
+
 signals:
     void typstSourceChanged(const QString &source);
+    void citationStyleChanged();
 
 private:
     void scheduleSerialization();
@@ -59,6 +68,9 @@ private:
     QTimer m_compileTimer;
     QString m_lastSource;
     ReferenceLibrary *m_library = nullptr;
+    CitationStyleRegistry *m_registry;
+    QString m_citationStyle = QStringLiteral("oscola");
+    std::shared_ptr<CitationFormatter> m_formatter;
 };
 
 #endif // DOCUMENTMODEL_H
