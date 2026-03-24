@@ -1,5 +1,6 @@
 build/
-.claude
+.claude/
+.cache/
 CLAUDE.md
 
 # CMake user-specific presets (local overrides)

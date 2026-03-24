@@ -98,12 +98,18 @@ Item {
         case 4: academic = true; break
         }
 
+        console.log("[CitationPanel] refreshEntries: tab=" + categoryBar.currentIndex
+                    + " typeFilter=" + typeFilter + " academic=" + academic
+                    + " searchQuery=" + searchQuery)
+
         var source
         if (searchQuery.length > 0) {
             source = referenceLibrary.search(searchQuery)
         } else {
             source = referenceLibrary.entries(academic ? "" : typeFilter)
         }
+
+        console.log("[CitationPanel] source length=" + (source ? source.length : "null"))
 
         if (academic) {
             filteredEntries = source.filter(function(e) { return isAcademicType(e.type) })
@@ -112,6 +118,8 @@ Item {
         } else {
             filteredEntries = source
         }
+
+        console.log("[CitationPanel] filteredEntries length=" + filteredEntries.length)
     }
 
     Connections {

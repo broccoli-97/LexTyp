@@ -179,7 +179,11 @@ void ReferenceLibrary::loadBibFile(const QString &path)
     if (cleanPath.startsWith(QStringLiteral("file://")))
         cleanPath = cleanPath.mid(7);
 
+    qDebug() << "[ReferenceLibrary] loadBibFile called with path:" << path;
+    qDebug() << "[ReferenceLibrary] cleanPath:" << cleanPath;
+
     auto newEntries = BibParser::parse(cleanPath);
+    qDebug() << "[ReferenceLibrary] Parsed" << newEntries.size() << "entries";
 
     beginResetModel();
     // Merge: replace existing keys, add new ones
@@ -198,6 +202,7 @@ void ReferenceLibrary::loadBibFile(const QString &path)
     endResetModel();
 
     m_filePath = cleanPath;
+    qDebug() << "[ReferenceLibrary] Total entries after merge:" << m_entries.size();
     emit libraryChanged();
 }
 
@@ -209,6 +214,8 @@ QVariantList ReferenceLibrary::entries(const QString &typeFilter) const
             continue;
         result.append(entryToVariantMap(entry));
     }
+    qDebug() << "[ReferenceLibrary] entries() filter:" << typeFilter
+             << "-> returned" << result.size() << "of" << m_entries.size();
     return result;
 }
 
