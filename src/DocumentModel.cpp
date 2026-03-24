@@ -228,6 +228,31 @@ void DocumentModel::setReferenceLibrary(ReferenceLibrary *library)
     scheduleSerialization();
 }
 
+void DocumentModel::insertInlineCitation(int row, int cursorPos, const QString &key)
+{
+    if (row < 0 || row >= m_nodes.size())
+        return;
+
+    auto &node = m_nodes[row];
+    if (node->type() != NodeType::Paragraph)
+        return;
+
+    QString text = node->content();
+    cursorPos = qBound(0, cursorPos, text.length());
+
+    // Build insertion string with surrounding spaces so the @key is
+    // always delimited — prevents subsequent typing from extending it
+    QString insert = QStringLiteral("@") + key;
+    if (cursorPos > 0 && text[cursorPos - 1] != QLatin1Char(' '))
+        insert.prepend(QLatin1Char(' '));
+    // Always append trailing space (even at end of text)
+    if (cursorPos >= text.length() || text[cursorPos] != QLatin1Char(' '))
+        insert.append(QLatin1Char(' '));
+
+    text.insert(cursorPos, insert);
+    setNodeContent(row, text);
+}
+
 void DocumentModel::scheduleSerialization()
 {
     m_compileTimer.start();

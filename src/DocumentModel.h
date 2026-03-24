@@ -45,6 +45,7 @@ public:
     Q_INVOKABLE void setNodePrefix(int row, const QString &value);
     Q_INVOKABLE void setNodeSuffix(int row, const QString &value);
 
+    Q_INVOKABLE void insertInlineCitation(int row, int cursorPos, const QString &key);
     Q_INVOKABLE void setReferenceLibrary(ReferenceLibrary *library);
 
 signals:

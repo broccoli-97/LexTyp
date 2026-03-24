@@ -209,8 +209,14 @@ Item {
                     referenceLibrary: sidePanel.referenceLibrary
 
                     onCitationInsertRequested: function(key) {
-                        documentModel.insertNode(documentModel.nodeCount(), 2)
-                        documentModel.setNodeContent(documentModel.nodeCount() - 1, key)
+                        if (root.activeParagraphIndex >= 0) {
+                            // Insert inline @citekey at cursor position in active paragraph
+                            documentModel.insertInlineCitation(root.activeParagraphIndex, root.activeCursorPosition, key)
+                        } else {
+                            // Fallback: insert standalone citation block
+                            documentModel.insertNode(documentModel.nodeCount(), 2)
+                            documentModel.setNodeContent(documentModel.nodeCount() - 1, key)
+                        }
                     }
                 }
             }

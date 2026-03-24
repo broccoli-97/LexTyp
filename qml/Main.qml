@@ -16,6 +16,10 @@ ApplicationWindow {
     readonly property color accentColor: "#2979FF"
     readonly property color borderColor: "#E0E0E0"
 
+    // Active paragraph tracking for inline citation insertion
+    property int activeParagraphIndex: -1
+    property int activeCursorPosition: -1
+
     DocumentModel {
         id: documentModel
     }

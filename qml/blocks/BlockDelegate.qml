@@ -17,7 +17,13 @@ Item {
 
     property int currentNodeType: nodeType
     property bool isHovered: delegateMouseArea.containsMouse
-    property bool isFocused: blockLoader.item ? blockLoader.item.activeFocus : false
+    property bool isFocused: {
+        var item = blockLoader.item
+        if (!item) return false
+        // ParagraphBlock is an Item wrapper; use its hasFocus property
+        if (item.hasOwnProperty("hasFocus")) return item.hasFocus
+        return item.activeFocus
+    }
 
     // Drag state
     property bool held: false

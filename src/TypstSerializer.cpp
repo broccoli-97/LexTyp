@@ -8,6 +8,49 @@
 #include "bib/BibParser.h"
 #include "oscola/OscolaFormatter.h"
 
+#include <QRegularExpression>
+
+static QString processInlineCitations(const QString &text,
+                                      ReferenceLibrary *library,
+                                      QVector<CitationHistoryEntry> &citationHistory,
+                                      int &footnoteCounter)
+{
+    static const QRegularExpression rx(QStringLiteral("@([\\w][\\w-]*)"));
+    QString result;
+    qsizetype lastEnd = 0;
+    auto it = rx.globalMatch(text);
+
+    while (it.hasNext()) {
+        auto match = it.next();
+        result += text.mid(lastEnd, match.capturedStart() - lastEnd);
+
+        QString key = match.captured(1);
+        bool replaced = false;
+
+        if (library && !key.isEmpty()) {
+            BibEntry entry = library->findEntry(key);
+            if (!entry.key.isEmpty()) {
+                ++footnoteCounter;
+                QString footnoteText = OscolaFormatter::formatFootnote(
+                    entry, QString(), citationHistory, footnoteCounter);
+                result += QStringLiteral("#footnote[") + footnoteText + QStringLiteral("]");
+                citationHistory.append({key, footnoteCounter});
+                replaced = true;
+            }
+        }
+
+        if (!replaced) {
+            // Leave as-is (Typst native cite or unresolved key)
+            result += match.captured(0);
+        }
+
+        lastEnd = match.capturedEnd();
+    }
+
+    result += text.mid(lastEnd);
+    return result;
+}
+
 QString TypstSerializer::serialize(const QVector<std::shared_ptr<DocumentNode>> &nodes,
                                    ReferenceLibrary *library)
 {
@@ -27,7 +70,11 @@ QString TypstSerializer::serialize(const QVector<std::shared_ptr<DocumentNode>> 
             break;
         }
         case NodeType::Paragraph: {
-            output += node->content();
+            QString content = node->content();
+            if (content.contains(QLatin1Char('@'))) {
+                content = processInlineCitations(content, library, citationHistory, footnoteCounter);
+            }
+            output += content;
             output += QStringLiteral("\n\n");
             break;
         }
