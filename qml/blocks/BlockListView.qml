@@ -1,44 +1,67 @@
 import QtQuick
 import QtQuick.Controls
+import QtQml.Models
 
 ListView {
     id: blockListView
     clip: true
-    spacing: 0
+    spacing: 2
+    cacheBuffer: 200
 
-    delegate: BlockDelegate {}
+    // Source model — set from Main.qml (documentModel)
+    property var sourceModel
 
-    // Animation for moving items
+    model: DelegateModel {
+        id: visualModel
+        model: blockListView.sourceModel
+        delegate: BlockDelegate {}
+    }
+
+    // ── Transitions — "soapy water" effect on drop ──
+
     move: Transition {
         NumberAnimation {
-            properties: "y"
-            duration: 250
-            easing.type: Easing.InOutQuad
+            properties: "x,y"
+            duration: 350
+            easing.type: Easing.OutBack
+            easing.overshoot: 0.6
         }
     }
 
-    // Animation for other items making room
     displaced: Transition {
         NumberAnimation {
-            properties: "y"
-            duration: 250
-            easing.type: Easing.InOutQuad
+            properties: "x,y"
+            duration: 300
+            easing.type: Easing.OutCubic
         }
     }
 
-    // Animation for newly added items
-    add: Transition {
+    moveDisplaced: Transition {
         NumberAnimation {
-            property: "opacity"
-            from: 0
-            to: 1.0
-            duration: 200
+            properties: "x,y"
+            duration: 300
+            easing.type: Easing.OutCubic
         }
     }
 
-    // Animation for removed items
-    remove: Transition {
+    add: Transition {
         ParallelAnimation {
+            NumberAnimation {
+                property: "opacity"
+                from: 0; to: 1.0
+                duration: 250
+            }
+            NumberAnimation {
+                property: "y"
+                from: -20
+                duration: 250
+                easing.type: Easing.OutCubic
+            }
+        }
+    }
+
+    remove: Transition {
+        SequentialAnimation {
             NumberAnimation {
                 property: "opacity"
                 to: 0
@@ -47,16 +70,25 @@ ListView {
             NumberAnimation {
                 property: "height"
                 to: 0
-                duration: 200
+                duration: 150
+                easing.type: Easing.InQuad
             }
         }
     }
 
-    moveDisplaced: Transition {
+    addDisplaced: Transition {
         NumberAnimation {
-            properties: "y"
-            duration: 250
-            easing.type: Easing.InOutQuad
+            properties: "x,y"
+            duration: 300
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    removeDisplaced: Transition {
+        NumberAnimation {
+            properties: "x,y"
+            duration: 300
+            easing.type: Easing.OutCubic
         }
     }
 

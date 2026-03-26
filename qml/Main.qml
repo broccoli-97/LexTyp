@@ -295,7 +295,7 @@ ApplicationWindow {
                         Layout.leftMargin: 12
                         Layout.rightMargin: 12
                         Layout.topMargin: 4
-                        model: documentModel
+                        sourceModel: documentModel
                     }
                 }
             }
