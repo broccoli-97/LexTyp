@@ -47,7 +47,6 @@ qt_add_executable(LexTyp
     src/bib/ReferenceLibrary.cpp
     src/oscola/OscolaFormatter.cpp
     src/citation/CitationFormatter.cpp
-    src/citation/TexTemplateParser.cpp
     src/citation/CitationStyleRegistry.cpp
     src/citation/ApaFormatter.cpp
     src/citation/HarvardFormatter.cpp
@@ -67,6 +66,7 @@ qt_add_qml_module(LexTyp
         qml/blocks/TitleBlock.qml
         qml/blocks/ParagraphBlock.qml
         qml/blocks/CitationBlock.qml
+        qml/blocks/SectionBlock.qml
         qml/blocks/BlockToolbar.qml
         qml/blocks/BlockDelegate.qml
         qml/blocks/BlockListView.qml
@@ -87,14 +87,55 @@ target_link_libraries(LexTyp PRIVATE
     Qt6::Pdf
 )
 
+# --- Typst Binary Management ---
+include(FetchContent)
+
+set(TYPST_VERSION "v0.13.0")
+if(APPLE)
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+        set(TYPST_ARCH "aarch64-apple-darwin")
+    else()
+        set(TYPST_ARCH "x86_64-apple-darwin")
+    endif()
+    set(TYPST_EXT "tar.xz")
+elseif(WIN32)
+    set(TYPST_ARCH "x86_64-pc-windows-msvc")
+    set(TYPST_EXT "zip")
+    set(TYPST_EXE ".exe")
+else()
+    # Assume Linux
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+        set(TYPST_ARCH "aarch64-unknown-linux-musl")
+    else()
+        set(TYPST_ARCH "x86_64-unknown-linux-musl")
+    endif()
+    set(TYPST_EXT "tar.xz")
+endif()
+
+set(TYPST_URL "https://github.com/typst/typst/releases/download/${TYPST_VERSION}/typst-${TYPST_ARCH}.${TYPST_EXT}")
+
+FetchContent_Declare(
+    typst_bin
+    URL ${TYPST_URL}
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+
+# This command will only download if the binary is missing or has changed
+FetchContent_MakeAvailable(typst_bin)
+
+# The binary is at the root of the extracted source directory
+set(TYPST_SOURCE "${typst_bin_SOURCE_DIR}/typst${TYPST_EXE}")
+
 # Copy Typst binary next to the built executable
-set(TYPST_SOURCE "${CMAKE_SOURCE_DIR}/resources/bin/typst")
 if(EXISTS "${TYPST_SOURCE}")
     add_custom_command(TARGET LexTyp POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory
             "$<TARGET_FILE_DIR:LexTyp>/resources/bin"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${TYPST_SOURCE}"
-            "$<TARGET_FILE_DIR:LexTyp>/resources/bin/typst"
+            "$<TARGET_FILE_DIR:LexTyp>/resources/bin/typst${TYPST_EXE}"
+        COMMENT "Copying Typst binary to output directory"
     )
+else()
+    message(WARNING "Typst binary not found at ${TYPST_SOURCE} after download.")
 endif()

@@ -52,7 +52,8 @@ public:
     Q_INVOKABLE void insertInlineCitation(int row, int cursorPos, const QString &key);
     Q_INVOKABLE void setReferenceLibrary(ReferenceLibrary *library);
 
-    Q_INVOKABLE void loadTexTemplate(const QUrl &fileUrl);
+    Q_INVOKABLE void loadTypst(const QUrl &fileUrl);
+    Q_INVOKABLE void loadBibliography(const QUrl &fileUrl);
     QString citationStyle() const;
     Q_INVOKABLE void setCitationStyle(const QString &styleName);
 

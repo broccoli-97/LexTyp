@@ -28,34 +28,62 @@ Item {
     // Drag state
     property bool held: false
 
-    // Left accent bar + content
-    RowLayout {
-        id: contentRow
-        anchors.left: parent.left
-        anchors.right: parent.right
-        spacing: 0
+    // Card Background
+    Rectangle {
+        id: card
+        anchors.fill: parent
+        anchors.leftMargin: 8
+        anchors.rightMargin: 8
+        anchors.topMargin: 4
+        anchors.bottomMargin: 4
+        
+        radius: 8
+        color: held ? "#EEEEEE" : (isHovered ? "#F5F5F5" : "#FFFFFF")
+        
+        // Permanent border to make cards distinct
+        border.color: isFocused ? "#2979FF" : (isHovered ? "#BDBDBD" : "#E0E0E0")
+        border.width: isFocused ? 2 : 1
 
-        // Left accent indicator
+        Behavior on color { ColorAnimation { duration: 100 } }
+        Behavior on border.color { ColorAnimation { duration: 100 } }
+
+        // Left accent bar (visible when focused)
         Rectangle {
-            Layout.preferredWidth: 3
-            Layout.fillHeight: true
-            Layout.topMargin: 4
-            Layout.bottomMargin: 4
-            radius: 1.5
-            color: {
-                if (isFocused) return "#2979FF"
-                if (isHovered) return "#BBDEFB"
-                return "transparent"
-            }
-
-            Behavior on color {
-                ColorAnimation { duration: 150 }
-            }
+            width: 4
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.margins: 4
+            radius: 2
+            visible: isFocused
+            color: "#2979FF"
         }
 
-        // Drag handle (visible on hover)
+        // Drag shadow
+        Rectangle {
+            anchors.fill: parent
+            anchors.topMargin: 6
+            anchors.leftMargin: 6
+            anchors.rightMargin: -6
+            anchors.bottomMargin: -6
+            color: "#1A000000"
+            radius: parent.radius
+            visible: held
+            z: -1
+        }
+    }
+
+    // Layout
+    RowLayout {
+        id: contentRow
+        anchors.fill: parent
+        anchors.leftMargin: 8
+        anchors.rightMargin: 8
+        spacing: 0
+
+        // Drag handle
         Item {
-            Layout.preferredWidth: 20
+            Layout.preferredWidth: 24
             Layout.fillHeight: true
             opacity: isHovered || held ? 1.0 : 0.0
 
@@ -65,16 +93,16 @@ Item {
 
             Label {
                 anchors.centerIn: parent
-                text: "\u2630"
-                font.pixelSize: 11
-                color: "#BDBDBD"
+                text: "\u22EE\u22EE" // Vertical dots
+                font.pixelSize: 14
+                color: held ? "#2979FF" : "#BDBDBD"
             }
 
             MouseArea {
                 id: handleMa
                 anchors.fill: parent
                 hoverEnabled: true
-                cursorShape: Qt.OpenHandCursor
+                cursorShape: Qt.SizeAllCursor
                 drag.target: delegate
                 drag.axis: Drag.YAxis
 
@@ -92,9 +120,10 @@ Item {
         // Block content
         Item {
             Layout.fillWidth: true
-            Layout.topMargin: 6
-            Layout.bottomMargin: 6
-            Layout.rightMargin: 4
+            Layout.topMargin: 8
+            Layout.bottomMargin: 8
+            Layout.leftMargin: 4
+            Layout.rightMargin: 8
             implicitHeight: blockLoader.implicitHeight
 
             Loader {
@@ -105,6 +134,7 @@ Item {
                     case 0: return titleComponent
                     case 1: return paragraphComponent
                     case 2: return citationComponent
+                    case 3: return sectionComponent
                     default: return paragraphComponent
                     }
                 }
@@ -112,12 +142,12 @@ Item {
             }
         }
 
-        // Hover toolbar (minimal)
+        // Hover toolbar
         Row {
             Layout.alignment: Qt.AlignTop
-            Layout.topMargin: 6
+            Layout.topMargin: 8
             spacing: 2
-            opacity: isHovered ? 1.0 : 0.0
+            opacity: isHovered && !held ? 1.0 : 0.0
             visible: opacity > 0
 
             Behavior on opacity {
@@ -125,8 +155,8 @@ Item {
             }
 
             ToolButton {
-                width: 22
-                height: 22
+                width: 24
+                height: 24
                 text: "+"
                 font.pixelSize: 14
                 onClicked: documentModel.insertNodeBelow(delegate.index, 1)
@@ -135,14 +165,14 @@ Item {
                 ToolTip.text: "Add block below"
 
                 background: Rectangle {
-                    radius: 3
-                    color: parent.hovered ? "#F5F5F5" : "transparent"
+                    radius: 4
+                    color: parent.hovered ? "#E3F2FD" : "transparent"
                 }
             }
 
             ToolButton {
-                width: 22
-                height: 22
+                width: 24
+                height: 24
                 text: "\u00D7"
                 font.pixelSize: 14
                 onClicked: documentModel.removeNode(delegate.index)
@@ -151,7 +181,7 @@ Item {
                 ToolTip.text: "Delete block"
 
                 background: Rectangle {
-                    radius: 3
+                    radius: 4
                     color: parent.hovered ? "#FFEBEE" : "transparent"
                 }
             }
@@ -210,5 +240,10 @@ Item {
     Component {
         id: citationComponent
         CitationBlock {}
+    }
+
+    Component {
+        id: sectionComponent
+        SectionBlock {}
     }
 }

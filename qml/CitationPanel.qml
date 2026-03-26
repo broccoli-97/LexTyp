@@ -338,25 +338,6 @@ Item {
             onClicked: bibFileDialog.open()
         }
 
-        // Load .tex template button
-        Button {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 36
-            Layout.leftMargin: 8
-            Layout.rightMargin: 8
-            text: "Load .tex Template"
-            font.pixelSize: 12
-
-            background: Rectangle {
-                radius: 4
-                color: parent.hovered ? "#F5F5F5" : "white"
-                border.color: citationPanel.borderColor
-                border.width: 1
-            }
-
-            onClicked: texFileDialog.open()
-        }
-
         // Active citation style label
         Rectangle {
             Layout.fillWidth: true
@@ -396,16 +377,6 @@ Item {
         nameFilters: ["BibTeX files (*.bib)", "All files (*)"]
         onAccepted: {
             referenceLibrary.loadBibFile(selectedFile)
-        }
-    }
-
-    FileDialog {
-        id: texFileDialog
-        title: "Select LaTeX template"
-        nameFilters: ["LaTeX files (*.tex)", "All files (*)"]
-        onAccepted: {
-            if (citationPanel.documentModel)
-                citationPanel.documentModel.loadTexTemplate(selectedFile)
         }
     }
 }

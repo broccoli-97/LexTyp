@@ -2,6 +2,6 @@ build/
 .claude/
 .cache/
 CLAUDE.md
-
+test/
 # CMake user-specific presets (local overrides)
 CMakeUserPresets.json

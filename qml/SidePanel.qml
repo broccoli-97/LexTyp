@@ -8,6 +8,7 @@ Item {
 
     // Required from parent
     required property var referenceLibrary
+    required property var docModel
 
     // Theme colors (accessible by children)
     readonly property color accentColor: "#2979FF"
@@ -87,44 +88,6 @@ Item {
                     anchors.fill: parent
                     anchors.margins: 8
                     spacing: 4
-
-                    // Add buttons
-                    Button {
-                        Layout.fillWidth: true
-                        text: "+ Add Title"
-                        font.pixelSize: 12
-                        Layout.preferredHeight: 32
-
-                        background: Rectangle {
-                            radius: 4
-                            color: sidePanel.accentColor
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            font: parent.font
-                            color: "white"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        onClicked: documentModel.insertNode(documentModel.nodeCount(), 0)
-                    }
-
-                    Button {
-                        Layout.fillWidth: true
-                        text: "+ Add Paragraph"
-                        font.pixelSize: 12
-                        Layout.preferredHeight: 32
-
-                        background: Rectangle {
-                            radius: 4
-                            color: parent.hovered ? "#F5F5F5" : "white"
-                            border.color: sidePanel.borderColor
-                            border.width: 1
-                        }
-
-                        onClicked: documentModel.insertNode(documentModel.nodeCount(), 1)
-                    }
 
                     // Outline list of blocks
                     ListView {
@@ -207,57 +170,18 @@ Item {
                 CitationPanel {
                     anchors.fill: parent
                     referenceLibrary: sidePanel.referenceLibrary
-                    documentModel: documentModel
+                    documentModel: sidePanel.docModel
 
                     onCitationInsertRequested: function(key) {
                         if (root.activeParagraphIndex >= 0) {
                             // Insert inline @citekey at cursor position in active paragraph
-                            documentModel.insertInlineCitation(root.activeParagraphIndex, root.activeCursorPosition, key)
+                            sidePanel.docModel.insertInlineCitation(root.activeParagraphIndex, root.activeCursorPosition, key)
                         } else {
                             // Fallback: insert standalone citation block
-                            documentModel.insertNode(documentModel.nodeCount(), 2)
-                            documentModel.setNodeContent(documentModel.nodeCount() - 1, key)
+                            sidePanel.docModel.insertNode(sidePanel.docModel.nodeCount(), 2)
+                            sidePanel.docModel.setNodeContent(sidePanel.docModel.nodeCount() - 1, key)
                         }
                     }
-                }
-            }
-        }
-
-        // Bottom icon strip
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 36
-            color: sidePanel.bgColor
-
-            Rectangle {
-                anchors.top: parent.top
-                width: parent.width
-                height: 1
-                color: sidePanel.borderColor
-            }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 8
-                anchors.rightMargin: 8
-                spacing: 4
-
-                ToolButton {
-                    icon.name: "document-new"
-                    font.pixelSize: 16
-                    text: "\u2795"
-                    ToolTip.visible: hovered
-                    ToolTip.text: "Add block"
-                    display: AbstractButton.TextOnly
-                    onClicked: documentModel.insertNode(documentModel.nodeCount(), 1)
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Label {
-                    text: documentModel.nodeCount() + " blocks"
-                    font.pixelSize: 10
-                    color: "#9E9E9E"
                 }
             }
         }

@@ -57,6 +57,12 @@ QString TypstSerializer::serialize(const QVector<std::shared_ptr<DocumentNode>> 
                                    const CitationFormatter &formatter)
 {
     QString output;
+    
+    // Default Document Setup
+    output += QStringLiteral("#set page(paper: \"a4\", margin: 2cm)\n");
+    output += QStringLiteral("#set text(font: (\"DejaVu Sans\", \"Noto Serif\"), size: 11pt)\n");
+    output += QStringLiteral("#set par(justify: true, leading: 0.65em)\n\n");
+
     QVector<CitationHistoryEntry> citationHistory;
     int footnoteCounter = 0;
 
@@ -77,7 +83,10 @@ QString TypstSerializer::serialize(const QVector<std::shared_ptr<DocumentNode>> 
             if (content.contains(QLatin1Char('@'))) {
                 content = processInlineCitations(content, library, formatter, citationHistory, footnoteCounter);
             }
+            // Wrap paragraph in a block to ensure 100% width and correct wrapping
+            output += QStringLiteral("#block(width: 100%)[");
             output += content;
+            output += QStringLiteral("]");
             output += QStringLiteral("\n\n");
             break;
         }
@@ -123,7 +132,7 @@ QString TypstSerializer::serialize(const QVector<std::shared_ptr<DocumentNode>> 
             break;
         }
         case NodeType::Section: {
-            output += QStringLiteral("// Section: ");
+            output += QStringLiteral("== ");
             output += node->content();
             output += QLatin1Char('\n');
             break;

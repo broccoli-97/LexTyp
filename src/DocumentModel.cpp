@@ -1,20 +1,20 @@
 #include "DocumentModel.h"
 
-#include "ast/TitleNode.h"
-#include "ast/ParagraphNode.h"
-#include "ast/CitationNode.h"
-#include "ast/SectionNode.h"
-#include "bib/BibParser.h"
 #include "TypstSerializer.h"
-#include "citation/CitationFormatter.h"
+#include "ast/CitationNode.h"
+#include "ast/ParagraphNode.h"
+#include "ast/SectionNode.h"
+#include "ast/TitleNode.h"
 #include "citation/CitationStyleRegistry.h"
-#include "citation/TexTemplateParser.h"
 
-DocumentModel::DocumentModel(QObject *parent)
-    : QAbstractListModel(parent)
-    , m_registry(&CitationStyleRegistry::instance())
-    , m_formatter(m_registry->defaultFormatter())
-{
+#include <QFile>
+#include <QTextStream>
+#include <QUrl>
+
+DocumentModel::DocumentModel(QObject* parent)
+    : QAbstractListModel(parent),
+      m_registry(&CitationStyleRegistry::instance()),
+      m_formatter(m_registry->defaultFormatter()) {
     m_compileTimer.setSingleShot(true);
     m_compileTimer.setInterval(400);
     connect(&m_compileTimer, &QTimer::timeout, this, [this]() {
@@ -31,78 +31,75 @@ DocumentModel::DocumentModel(QObject *parent)
     m_nodes.append(std::make_shared<ParagraphNode>());
 }
 
-int DocumentModel::rowCount(const QModelIndex &parent) const
-{
+int DocumentModel::rowCount(const QModelIndex& parent) const {
     if (parent.isValid())
         return 0;
     return m_nodes.size();
 }
 
-QVariant DocumentModel::data(const QModelIndex &index, int role) const
-{
+QVariant DocumentModel::data(const QModelIndex& index, int role) const {
     if (!index.isValid() || index.row() < 0 || index.row() >= m_nodes.size())
         return {};
 
-    const auto &node = m_nodes.at(index.row());
+    const auto& node = m_nodes.at(index.row());
 
     switch (role) {
-    case NodeTypeRole:
-        return static_cast<int>(node->type());
-    case ContentRole:
-        return node->content();
-    case NodeIdRole:
-        return node->id().toString(QUuid::WithoutBraces);
-    case LevelRole:
-        if (auto *title = node->as<TitleNode>())
-            return title->level();
-        return 0;
-    case PrefixRole:
-        if (auto *cite = node->as<CitationNode>())
-            return cite->prefix();
-        return QString();
-    case SuffixRole:
-        if (auto *cite = node->as<CitationNode>())
-            return cite->suffix();
-        return QString();
+        case NodeTypeRole:
+            return static_cast<int>(node->type());
+        case ContentRole:
+            return node->content();
+        case NodeIdRole:
+            return node->id().toString(QUuid::WithoutBraces);
+        case LevelRole:
+            if (auto* title = node->as<TitleNode>())
+                return title->level();
+            return 0;
+        case PrefixRole:
+            if (auto* cite = node->as<CitationNode>())
+                return cite->prefix();
+            return QString();
+        case SuffixRole:
+            if (auto* cite = node->as<CitationNode>())
+                return cite->suffix();
+            return QString();
     }
 
     return {};
 }
 
-bool DocumentModel::setData(const QModelIndex &index, const QVariant &value, int role)
-{
+bool DocumentModel::setData(const QModelIndex& index, const QVariant& value, int role) {
     if (!index.isValid() || index.row() < 0 || index.row() >= m_nodes.size())
         return false;
 
-    auto &node = m_nodes[index.row()];
+    auto& node = m_nodes[index.row()];
 
     switch (role) {
-    case ContentRole:
-        node->setContent(value.toString());
-        break;
-    case LevelRole:
-        if (auto *title = node->as<TitleNode>()) {
-            title->setLevel(value.toInt());
-        } else {
+        case ContentRole:
+            node->setContent(value.toString());
+            break;
+        case LevelRole:
+            if (auto* title = node->as<TitleNode>()) {
+                title->setLevel(value.toInt());
+            } else {
+                return false;
+            }
+            break;
+        case PrefixRole:
+            if (auto* cite = node->as<CitationNode>()) {
+                cite->setPrefix(value.toString());
+            } else {
+                return false;
+            }
+            break;
+        case SuffixRole:
+            if (auto* cite = node->as<CitationNode>()) {
+                cite->setSuffix(value.toString());
+            } else {
+                return false;
+            }
+            break;
+        default:
             return false;
-        }
-        break;
-    case PrefixRole:
-        if (auto *cite = node->as<CitationNode>()) {
-            cite->setPrefix(value.toString());
-        } else {
-            return false;
-        }
-        break;
-    case SuffixRole:
-        if (auto *cite = node->as<CitationNode>()) {
-            cite->setSuffix(value.toString());
-        } else {
-            return false;
-        }
-        break;
-    default:
-        return false;
     }
 
     emit dataChanged(index, index, {role});
@@ -110,27 +107,18 @@ bool DocumentModel::setData(const QModelIndex &index, const QVariant &value, int
     return true;
 }
 
-QHash<int, QByteArray> DocumentModel::roleNames() const
-{
-    return {
-        {NodeTypeRole, "nodeType"},
-        {ContentRole, "content"},
-        {NodeIdRole, "nodeId"},
-        {LevelRole, "level"},
-        {PrefixRole, "prefix"},
-        {SuffixRole, "suffix"}
-    };
+QHash<int, QByteArray> DocumentModel::roleNames() const {
+    return {{NodeTypeRole, "nodeType"}, {ContentRole, "content"}, {NodeIdRole, "nodeId"},
+            {LevelRole, "level"},       {PrefixRole, "prefix"},   {SuffixRole, "suffix"}};
 }
 
-Qt::ItemFlags DocumentModel::flags(const QModelIndex &index) const
-{
+Qt::ItemFlags DocumentModel::flags(const QModelIndex& index) const {
     if (!index.isValid())
         return Qt::NoItemFlags;
     return Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable;
 }
 
-void DocumentModel::insertNode(int row, int nodeType)
-{
+void DocumentModel::insertNode(int row, int nodeType) {
     row = qBound(0, row, m_nodes.size());
     auto node = createNode(static_cast<NodeType>(nodeType));
     if (!node)
@@ -142,8 +130,7 @@ void DocumentModel::insertNode(int row, int nodeType)
     scheduleSerialization();
 }
 
-void DocumentModel::removeNode(int row)
-{
+void DocumentModel::removeNode(int row) {
     if (row < 0 || row >= m_nodes.size())
         return;
 
@@ -153,8 +140,7 @@ void DocumentModel::removeNode(int row)
     scheduleSerialization();
 }
 
-void DocumentModel::moveNode(int from, int to)
-{
+void DocumentModel::moveNode(int from, int to) {
     if (from < 0 || from >= m_nodes.size() || to < 0 || to >= m_nodes.size() || from == to)
         return;
 
@@ -177,8 +163,7 @@ void DocumentModel::moveNode(int from, int to)
     scheduleSerialization();
 }
 
-void DocumentModel::changeNodeType(int row, int newType)
-{
+void DocumentModel::changeNodeType(int row, int newType) {
     if (row < 0 || row >= m_nodes.size())
         return;
 
@@ -198,48 +183,117 @@ void DocumentModel::changeNodeType(int row, int newType)
     scheduleSerialization();
 }
 
-int DocumentModel::nodeCount() const
-{
+int DocumentModel::nodeCount() const {
     return m_nodes.size();
 }
 
-void DocumentModel::insertNodeBelow(int row, int nodeType)
-{
+void DocumentModel::insertNodeBelow(int row, int nodeType) {
     insertNode(row + 1, nodeType);
 }
 
-void DocumentModel::setNodeContent(int row, const QString &value)
-{
+void DocumentModel::setNodeContent(int row, const QString& value) {
     setData(index(row), value, ContentRole);
 }
 
-void DocumentModel::setNodeLevel(int row, int value)
-{
+void DocumentModel::setNodeLevel(int row, int value) {
     setData(index(row), value, LevelRole);
 }
 
-void DocumentModel::setNodePrefix(int row, const QString &value)
-{
+void DocumentModel::setNodePrefix(int row, const QString& value) {
     setData(index(row), value, PrefixRole);
 }
 
-void DocumentModel::setNodeSuffix(int row, const QString &value)
-{
+void DocumentModel::setNodeSuffix(int row, const QString& value) {
     setData(index(row), value, SuffixRole);
 }
 
-void DocumentModel::setReferenceLibrary(ReferenceLibrary *library)
-{
+void DocumentModel::setReferenceLibrary(ReferenceLibrary* library) {
     m_library = library;
     scheduleSerialization();
 }
 
-void DocumentModel::insertInlineCitation(int row, int cursorPos, const QString &key)
-{
+void DocumentModel::loadTypst(const QUrl& fileUrl) {
+    QString path = fileUrl.toLocalFile();
+    if (path.isEmpty())
+        return;
+
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+
+    beginResetModel();
+    m_nodes.clear();
+
+    QTextStream in(&file);
+    QString currentParagraph;
+
+    while (!in.atEnd()) {
+        QString line = in.readLine();
+        QString trimmed = line.trimmed();
+
+        if (trimmed.startsWith(QLatin1Char('='))) {
+            // If we had a pending paragraph, flush it
+            if (!currentParagraph.trimmed().isEmpty()) {
+                auto p = std::make_shared<ParagraphNode>();
+                p->setContent(currentParagraph.trimmed());
+                m_nodes.append(p);
+                currentParagraph.clear();
+            }
+
+            // Parse header
+            int level = 0;
+            while (level < trimmed.length() && trimmed[level] == QLatin1Char('=')) {
+                level++;
+            }
+            QString content = trimmed.mid(level).trimmed();
+            m_nodes.append(std::make_shared<TitleNode>(content, level));
+        } else if (trimmed.isEmpty()) {
+            // Empty line = paragraph break
+            if (!currentParagraph.trimmed().isEmpty()) {
+                auto p = std::make_shared<ParagraphNode>();
+                p->setContent(currentParagraph.trimmed());
+                m_nodes.append(p);
+                currentParagraph.clear();
+            }
+        } else {
+            if (!currentParagraph.isEmpty())
+                currentParagraph += QLatin1Char(' ');
+            currentParagraph += trimmed;
+        }
+    }
+
+    // Last paragraph
+    if (!currentParagraph.trimmed().isEmpty()) {
+        auto p = std::make_shared<ParagraphNode>();
+        p->setContent(currentParagraph.trimmed());
+        m_nodes.append(p);
+    }
+
+    // Ensure we have at least something
+    if (m_nodes.isEmpty()) {
+        m_nodes.append(std::make_shared<TitleNode>(QStringLiteral("Untitled"), 1));
+        m_nodes.append(std::make_shared<ParagraphNode>());
+    }
+
+    endResetModel();
+    scheduleSerialization();
+}
+
+void DocumentModel::loadBibliography(const QUrl& fileUrl) {
+    QString path = fileUrl.toLocalFile();
+    if (path.isEmpty())
+        return;
+
+    if (m_library) {
+        m_library->loadBibFile(path);
+    }
+}
+
+void DocumentModel::insertInlineCitation(int row, int cursorPos, const QString& key) {
     if (row < 0 || row >= m_nodes.size())
         return;
 
-    auto &node = m_nodes[row];
+    auto& node = m_nodes[row];
     if (node->type() != NodeType::Paragraph)
         return;
 
@@ -259,29 +313,15 @@ void DocumentModel::insertInlineCitation(int row, int cursorPos, const QString &
     setNodeContent(row, text);
 }
 
-void DocumentModel::scheduleSerialization()
-{
+void DocumentModel::scheduleSerialization() {
     m_compileTimer.start();
 }
 
-void DocumentModel::loadTexTemplate(const QUrl &fileUrl)
-{
-    QString filePath = fileUrl.toLocalFile();
-    if (filePath.isEmpty())
-        return;
-
-    QString style = TexTemplateParser::extractBibliographyStyle(filePath);
-    if (!style.isEmpty())
-        setCitationStyle(style);
-}
-
-QString DocumentModel::citationStyle() const
-{
+QString DocumentModel::citationStyle() const {
     return m_citationStyle;
 }
 
-void DocumentModel::setCitationStyle(const QString &styleName)
-{
+void DocumentModel::setCitationStyle(const QString& styleName) {
     QString normalized = styleName.toLower().trimmed();
     if (normalized == m_citationStyle)
         return;
@@ -292,17 +332,16 @@ void DocumentModel::setCitationStyle(const QString &styleName)
     scheduleSerialization();
 }
 
-std::shared_ptr<DocumentNode> DocumentModel::createNode(NodeType type) const
-{
+std::shared_ptr<DocumentNode> DocumentModel::createNode(NodeType type) const {
     switch (type) {
-    case NodeType::Title:
-        return std::make_shared<TitleNode>();
-    case NodeType::Paragraph:
-        return std::make_shared<ParagraphNode>();
-    case NodeType::Citation:
-        return std::make_shared<CitationNode>();
-    case NodeType::Section:
-        return std::make_shared<SectionNode>();
+        case NodeType::Title:
+            return std::make_shared<TitleNode>();
+        case NodeType::Paragraph:
+            return std::make_shared<ParagraphNode>();
+        case NodeType::Citation:
+            return std::make_shared<CitationNode>();
+        case NodeType::Section:
+            return std::make_shared<SectionNode>();
     }
     return nullptr;
 }
