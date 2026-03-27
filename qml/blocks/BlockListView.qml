@@ -5,7 +5,7 @@ import QtQml.Models
 ListView {
     id: blockListView
     clip: true
-    spacing: 2
+    spacing: 6
     cacheBuffer: 200
 
     // Source model — set from Main.qml (documentModel)

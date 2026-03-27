@@ -225,6 +225,38 @@ MouseArea {
 
                 ToolButton {
                     width: 24; height: 24
+                    text: "\u2191"
+                    font.pixelSize: 14
+                    visible: dragArea.index > 0
+                    onClicked: documentModel.moveNode(dragArea.index, dragArea.index - 1)
+
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Move block up"
+
+                    background: Rectangle {
+                        radius: 4
+                        color: parent.hovered ? "#E8EAF6" : "transparent"
+                    }
+                }
+
+                ToolButton {
+                    width: 24; height: 24
+                    text: "\u2193"
+                    font.pixelSize: 14
+                    visible: dragArea.index < documentModel.nodeCount() - 1
+                    onClicked: documentModel.moveNode(dragArea.index, dragArea.index + 1)
+
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Move block down"
+
+                    background: Rectangle {
+                        radius: 4
+                        color: parent.hovered ? "#E8EAF6" : "transparent"
+                    }
+                }
+
+                ToolButton {
+                    width: 24; height: 24
                     text: "+"
                     font.pixelSize: 14
                     onClicked: documentModel.insertNodeBelow(dragArea.index, 1)
