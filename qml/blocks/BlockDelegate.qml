@@ -17,6 +17,13 @@ Item {
 
     property bool held: false
     property int lastReorderIndex: -1
+    property bool reorderCooldown: false
+
+    Timer {
+        id: reorderTimer
+        interval: 200
+        onTriggered: delegateRoot.reorderCooldown = false
+    }
 
     readonly property color typeColor: {
         switch (nodeType) {
@@ -157,7 +164,9 @@ Item {
 
                     onPositionChanged: function(mouse) {
                         if (!delegateRoot.held) return
-                         card.y = dragHandle.mapToItem(delegateRoot.ListView.view, 0, mouseY).y - card.height / 2
+                        card.y = dragHandle.mapToItem(delegateRoot.ListView.view, 0, mouseY).y - card.height / 2
+
+                        if (delegateRoot.reorderCooldown) return
 
                         var listView = delegateRoot.ListView.view
                         if (!listView) return
@@ -171,7 +180,8 @@ Item {
                             if (item && item !== delegateRoot) {
                                 var itemPos = item.mapToItem(listView, 0, 0)
                                 var itemCenter = itemPos.y + item.height / 2
-                                if (Math.abs(cardCenter - itemCenter) < item.height / 2) {
+                                // Require 60% overlap to prevent borderline oscillation
+                                if (Math.abs(cardCenter - itemCenter) < item.height * 0.4) {
                                     newTargetIndex = i
                                     break
                                 }
@@ -179,6 +189,8 @@ Item {
                         }
 
                         if (newTargetIndex !== -1 && newTargetIndex !== delegateRoot.lastReorderIndex) {
+                            delegateRoot.reorderCooldown = true
+                            reorderTimer.restart()
                             documentModel.moveNode(delegateRoot.lastReorderIndex, newTargetIndex)
                             delegateRoot.lastReorderIndex = newTargetIndex
                         }
@@ -187,6 +199,8 @@ Item {
                     onReleased: {
                         if (!delegateRoot.held) return
                         delegateRoot.held = false
+                        delegateRoot.reorderCooldown = false
+                        reorderTimer.stop()
                         var listView = delegateRoot.ListView.view
                         if (listView) listView.interactive = true
                         delegateRoot.lastReorderIndex = -1
