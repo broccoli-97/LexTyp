@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Dialogs
 import LexTyp
 
 Item {
@@ -319,25 +318,6 @@ Item {
             }
         }
 
-        // Load .bib file button
-        Button {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 36
-            Layout.leftMargin: 8
-            Layout.rightMargin: 8
-            text: "Load .bib File"
-            font.pixelSize: 12
-
-            background: Rectangle {
-                radius: 4
-                color: parent.hovered ? "#F5F5F5" : "white"
-                border.color: citationPanel.borderColor
-                border.width: 1
-            }
-
-            onClicked: bibFileDialog.open()
-        }
-
         // Active citation style label
         Rectangle {
             Layout.fillWidth: true
@@ -371,12 +351,4 @@ Item {
         }
     }
 
-    FileDialog {
-        id: bibFileDialog
-        title: "Select BibTeX file"
-        nameFilters: ["BibTeX files (*.bib)", "All files (*)"]
-        onAccepted: {
-            referenceLibrary.loadBibFile(selectedFile)
-        }
-    }
 }

@@ -53,7 +53,10 @@ public:
     Q_INVOKABLE void setReferenceLibrary(ReferenceLibrary *library);
 
     Q_INVOKABLE void loadTypst(const QUrl &fileUrl);
+    Q_INVOKABLE void loadTypstFromString(const QString &source);
+    Q_INVOKABLE void loadProject(const QUrl &fileUrl);
     Q_INVOKABLE void loadBibliography(const QUrl &fileUrl);
+
     QString citationStyle() const;
     Q_INVOKABLE void setCitationStyle(const QString &styleName);
 
@@ -63,6 +66,7 @@ signals:
 
 private:
     void scheduleSerialization();
+    void parseTypstSource(const QString &source);
     std::shared_ptr<DocumentNode> createNode(NodeType type) const;
 
     QVector<std::shared_ptr<DocumentNode>> m_nodes;

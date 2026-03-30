@@ -1,18 +1,32 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import LexTyp
 
 Item {
     id: pdfPreview
 
     property alias pdfManager: pdfMgr
+    property real zoomLevel: 1.0
 
     readonly property color previewBg: "#3C3C3C"
     readonly property color headerBg: "#2C2C2C"
+    readonly property real zoomStep: 0.25
+    readonly property real zoomMin: 0.25
+    readonly property real zoomMax: 3.0
 
     PdfManager {
         id: pdfMgr
+    }
+
+    FileDialog {
+        id: savePdfDialog
+        title: "Save PDF"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["PDF files (*.pdf)"]
+        defaultSuffix: "pdf"
+        onAccepted: Qt.copyFile(TypstManager.lastPdfPath, savePdfDialog.selectedFile)
     }
 
     Rectangle {
@@ -24,7 +38,7 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        // Header
+        // ── Header ────────────────────────────────────────────────────────────
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 40
@@ -33,7 +47,8 @@ Item {
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 12
-                anchors.rightMargin: 12
+                anchors.rightMargin: 8
+                spacing: 4
 
                 Label {
                     text: "Live Preview"
@@ -44,17 +59,115 @@ Item {
 
                 Item { Layout.fillWidth: true }
 
+                // ── Zoom controls ────────────────────────────────────────────
+                Row {
+                    spacing: 0
+
+                    // Zoom out
+                    ToolButton {
+                        id: zoomOutBtn
+                        width: 26; height: 26
+                        enabled: pdfMgr.pageCount > 0 && pdfPreview.zoomLevel > pdfPreview.zoomMin
+                        onClicked: pdfPreview.zoomLevel =
+                            Math.max(pdfPreview.zoomMin,
+                                     Math.round((pdfPreview.zoomLevel - pdfPreview.zoomStep) * 100) / 100)
+                        ToolTip.visible: hovered
+                        ToolTip.text: "Zoom out"
+                        contentItem: Text {
+                            text: "\u2212"   // − minus sign
+                            font.pixelSize: 16
+                            font.weight: Font.Medium
+                            color: zoomOutBtn.enabled ? "#D0D0D0" : "#606060"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            radius: 4
+                            color: zoomOutBtn.hovered && zoomOutBtn.enabled ? "#484848" : "transparent"
+                        }
+                    }
+
+                    // Percentage label — click resets to 100%
+                    Rectangle {
+                        width: 46; height: 26
+                        radius: 4
+                        color: percentHover.containsMouse ? "#484848" : "transparent"
+
+                        Label {
+                            anchors.centerIn: parent
+                            text: Math.round(pdfPreview.zoomLevel * 100) + "%"
+                            font.pixelSize: 11
+                            color: pdfMgr.pageCount > 0 ? "#C8C8C8" : "#606060"
+                        }
+
+                        HoverHandler { id: percentHover }
+                        TapHandler {
+                            enabled: pdfMgr.pageCount > 0
+                            onTapped: pdfPreview.zoomLevel = 1.0
+                        }
+                        ToolTip.visible: percentHover.hovered
+                        ToolTip.text: "Reset zoom to 100%"
+                    }
+
+                    // Zoom in
+                    ToolButton {
+                        id: zoomInBtn
+                        width: 26; height: 26
+                        enabled: pdfMgr.pageCount > 0 && pdfPreview.zoomLevel < pdfPreview.zoomMax
+                        onClicked: pdfPreview.zoomLevel =
+                            Math.min(pdfPreview.zoomMax,
+                                     Math.round((pdfPreview.zoomLevel + pdfPreview.zoomStep) * 100) / 100)
+                        ToolTip.visible: hovered
+                        ToolTip.text: "Zoom in"
+                        contentItem: Text {
+                            text: "+"
+                            font.pixelSize: 16
+                            font.weight: Font.Medium
+                            color: zoomInBtn.enabled ? "#D0D0D0" : "#606060"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            radius: 4
+                            color: zoomInBtn.hovered && zoomInBtn.enabled ? "#484848" : "transparent"
+                        }
+                    }
+                }
+
+                // ── Page count ───────────────────────────────────────────────
                 Label {
                     text: pdfMgr.pageCount > 0
                           ? pdfMgr.pageCount + " page" + (pdfMgr.pageCount > 1 ? "s" : "")
                           : ""
                     font.pixelSize: 11
                     color: "#9E9E9E"
+                    leftPadding: 4
+                }
+
+                // ── Download / save button ────────────────────────────────────
+                ToolButton {
+                    id: saveBtn
+                    width: 30; height: 30
+                    enabled: pdfMgr.pageCount > 0 && TypstManager.lastPdfPath !== ""
+                    onClicked: savePdfDialog.open()
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Save PDF\u2026"
+                    contentItem: Text {
+                        text: "\u2B07"   // ⬇ downward arrow
+                        font.pixelSize: 15
+                        color: saveBtn.enabled ? "#D0D0D0" : "#606060"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        radius: 4
+                        color: saveBtn.hovered && saveBtn.enabled ? "#484848" : "transparent"
+                    }
                 }
             }
         }
 
-        // Page area
+        // ── Page area ─────────────────────────────────────────────────────────
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -63,12 +176,17 @@ Item {
                 id: flickable
                 anchors.fill: parent
                 clip: true
-                contentWidth: width
+
+                // When zoomed beyond 100% the content is wider than the viewport
+                contentWidth: Math.max(width,
+                                       pdfPreview.zoomLevel * (width - 48) + 48)
                 contentHeight: pageColumn.height + 32
 
                 Column {
                     id: pageColumn
-                    width: flickable.width
+                    // Column stretches to at least the viewport, wider on zoom-in
+                    width: Math.max(flickable.width,
+                                    pdfPreview.zoomLevel * (flickable.width - 48) + 48)
                     spacing: 16
                     topPadding: 16
 
@@ -77,13 +195,17 @@ Item {
 
                         // Page with drop shadow
                         Item {
-                            width: pageColumn.width - 48
+                            // Explicit scaled width; centred inside the column
+                            width: pdfPreview.zoomLevel * (flickable.width - 48)
                             anchors.horizontalCenter: parent.horizontalCenter
 
                             property var pgSize: pdfMgr.pageSize(index)
                             property real aspect: pgSize.height > 0 ? pgSize.width / pgSize.height : 0.707
 
                             height: aspect > 0 ? width / aspect : width * 1.414
+
+                            Behavior on width  { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                            Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
                             // Shadow
                             Rectangle {
@@ -113,7 +235,7 @@ Item {
                                 }
                             }
 
-                            // Page number
+                            // Page number badge
                             Rectangle {
                                 anchors.bottom: parent.bottom
                                 anchors.horizontalCenter: parent.horizontalCenter
@@ -141,9 +263,12 @@ Item {
                 ScrollBar.vertical: ScrollBar {
                     policy: ScrollBar.AsNeeded
                 }
+                ScrollBar.horizontal: ScrollBar {
+                    policy: pdfPreview.zoomLevel > 1.0 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                }
             }
 
-            // Compiling overlay
+            // ── Compiling overlay ─────────────────────────────────────────────
             Rectangle {
                 anchors.fill: parent
                 visible: TypstManager.compiling
@@ -169,7 +294,7 @@ Item {
                 }
             }
 
-            // Empty state
+            // ── Empty state ───────────────────────────────────────────────────
             Column {
                 anchors.centerIn: parent
                 spacing: 8
@@ -184,7 +309,9 @@ Item {
 
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: pdfMgr.errorMessage !== "" ? pdfMgr.errorMessage : "Edit blocks to generate a preview"
+                    text: pdfMgr.errorMessage !== ""
+                          ? pdfMgr.errorMessage
+                          : "Edit blocks to generate a preview"
                     color: "#757575"
                     font.pixelSize: 12
                 }

@@ -7,7 +7,10 @@
 #include "ast/TitleNode.h"
 #include "citation/CitationStyleRegistry.h"
 
+#include <QDir>
 #include <QFile>
+#include <QProcess>
+#include <QTemporaryDir>
 #include <QTextStream>
 #include <QUrl>
 
@@ -212,49 +215,41 @@ void DocumentModel::setReferenceLibrary(ReferenceLibrary* library) {
     scheduleSerialization();
 }
 
-void DocumentModel::loadTypst(const QUrl& fileUrl) {
-    QString path = fileUrl.toLocalFile();
-    if (path.isEmpty())
-        return;
-
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-        return;
-
+void DocumentModel::parseTypstSource(const QString& source) {
     beginResetModel();
     m_nodes.clear();
 
-    QTextStream in(&file);
     QString currentParagraph;
+    const QStringList lines = source.split(QLatin1Char('\n'));
 
-    while (!in.atEnd()) {
-        QString line = in.readLine();
-        QString trimmed = line.trimmed();
+    for (const QString& line : lines) {
+        const QString trimmed = line.trimmed();
 
         if (trimmed.startsWith(QLatin1Char('='))) {
-            // If we had a pending paragraph, flush it
             if (!currentParagraph.trimmed().isEmpty()) {
                 auto p = std::make_shared<ParagraphNode>();
                 p->setContent(currentParagraph.trimmed());
                 m_nodes.append(p);
                 currentParagraph.clear();
             }
-
-            // Parse header
             int level = 0;
-            while (level < trimmed.length() && trimmed[level] == QLatin1Char('=')) {
+            while (level < trimmed.length() && trimmed[level] == QLatin1Char('='))
                 level++;
-            }
-            QString content = trimmed.mid(level).trimmed();
-            m_nodes.append(std::make_shared<TitleNode>(content, level));
+            m_nodes.append(std::make_shared<TitleNode>(trimmed.mid(level).trimmed(), level));
         } else if (trimmed.isEmpty()) {
-            // Empty line = paragraph break
             if (!currentParagraph.trimmed().isEmpty()) {
                 auto p = std::make_shared<ParagraphNode>();
                 p->setContent(currentParagraph.trimmed());
                 m_nodes.append(p);
                 currentParagraph.clear();
             }
+        } else if (trimmed.startsWith(QLatin1String("//")) ||
+                   trimmed.startsWith(QLatin1String("#set ")) ||
+                   trimmed.startsWith(QLatin1String("#let ")) ||
+                   trimmed.startsWith(QLatin1String("#show ")) ||
+                   trimmed.startsWith(QLatin1String("#import ")) ||
+                   trimmed == QLatin1String("---")) {
+            // Skip preamble directives and comments
         } else {
             if (!currentParagraph.isEmpty())
                 currentParagraph += QLatin1Char(' ');
@@ -262,14 +257,12 @@ void DocumentModel::loadTypst(const QUrl& fileUrl) {
         }
     }
 
-    // Last paragraph
     if (!currentParagraph.trimmed().isEmpty()) {
         auto p = std::make_shared<ParagraphNode>();
         p->setContent(currentParagraph.trimmed());
         m_nodes.append(p);
     }
 
-    // Ensure we have at least something
     if (m_nodes.isEmpty()) {
         m_nodes.append(std::make_shared<TitleNode>(QStringLiteral("Untitled"), 1));
         m_nodes.append(std::make_shared<ParagraphNode>());
@@ -277,6 +270,49 @@ void DocumentModel::loadTypst(const QUrl& fileUrl) {
 
     endResetModel();
     scheduleSerialization();
+}
+
+void DocumentModel::loadTypst(const QUrl& fileUrl) {
+    const QString path = fileUrl.toLocalFile();
+    if (path.isEmpty())
+        return;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+    parseTypstSource(QTextStream(&file).readAll());
+}
+
+void DocumentModel::loadTypstFromString(const QString& source) {
+    parseTypstSource(source);
+}
+
+void DocumentModel::loadProject(const QUrl& fileUrl) {
+    const QString zipPath = fileUrl.toLocalFile();
+    if (zipPath.isEmpty())
+        return;
+
+    QTemporaryDir tempDir;
+    if (!tempDir.isValid())
+        return;
+
+    QProcess proc;
+    proc.start(QStringLiteral("unzip"),
+               {QStringLiteral("-o"), zipPath, QStringLiteral("-d"), tempDir.path()});
+    if (!proc.waitForFinished(10000) || proc.exitCode() != 0)
+        return;
+
+    QDir dir(tempDir.path());
+    const QStringList typFiles = dir.entryList({QStringLiteral("*.typ")}, QDir::Files);
+    const QStringList bibFiles = dir.entryList({QStringLiteral("*.bib")}, QDir::Files);
+
+    if (!typFiles.isEmpty()) {
+        QFile f(dir.filePath(typFiles.first()));
+        if (f.open(QIODevice::ReadOnly | QIODevice::Text))
+            parseTypstSource(QTextStream(&f).readAll());
+    }
+
+    if (!bibFiles.isEmpty() && m_library)
+        m_library->loadBibFile(dir.filePath(bibFiles.first()));
 }
 
 void DocumentModel::loadBibliography(const QUrl& fileUrl) {
