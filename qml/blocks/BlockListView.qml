@@ -8,7 +8,6 @@ ListView {
     spacing: 6
     cacheBuffer: 200
 
-    // Source model — set from Main.qml (documentModel)
     property var sourceModel
 
     model: DelegateModel {
@@ -17,79 +16,36 @@ ListView {
         delegate: BlockDelegate {}
     }
 
-    // ── Transitions — "soapy water" effect on drop ──
-
+    // Dragged item jumps instantly (it's invisible — card is reparented)
     move: Transition {
-        NumberAnimation {
-            properties: "x,y"
-            duration: 350
-            easing.type: Easing.OutBack
-            easing.overshoot: 0.6
-        }
+        NumberAnimation { properties: "x,y"; duration: 0 }
     }
 
+    // Other blocks slide smoothly out of the way
     displaced: Transition {
-        NumberAnimation {
-            properties: "x,y"
-            duration: 300
-            easing.type: Easing.OutCubic
-        }
-    }
-
-    moveDisplaced: Transition {
-        NumberAnimation {
-            properties: "x,y"
-            duration: 300
-            easing.type: Easing.OutCubic
-        }
+        NumberAnimation { properties: "x,y"; duration: 250; easing.type: Easing.OutCubic }
     }
 
     add: Transition {
         ParallelAnimation {
-            NumberAnimation {
-                property: "opacity"
-                from: 0; to: 1.0
-                duration: 250
-            }
-            NumberAnimation {
-                property: "y"
-                from: -20
-                duration: 250
-                easing.type: Easing.OutCubic
-            }
+            NumberAnimation { property: "opacity"; from: 0; to: 1.0; duration: 250 }
+            NumberAnimation { property: "y"; from: -20; duration: 250; easing.type: Easing.OutCubic }
         }
     }
 
     remove: Transition {
         SequentialAnimation {
-            NumberAnimation {
-                property: "opacity"
-                to: 0
-                duration: 200
-            }
-            NumberAnimation {
-                property: "height"
-                to: 0
-                duration: 150
-                easing.type: Easing.InQuad
-            }
+            NumberAnimation { property: "opacity"; to: 0; duration: 200 }
+            NumberAnimation { property: "height"; to: 0; duration: 150; easing.type: Easing.InQuad }
         }
     }
 
     addDisplaced: Transition {
-        NumberAnimation {
-            properties: "x,y"
-            duration: 300
-            easing.type: Easing.OutCubic
-        }
+        NumberAnimation { properties: "x,y"; duration: 300; easing.type: Easing.OutCubic }
     }
 
     removeDisplaced: Transition {
-        NumberAnimation {
-            properties: "x,y"
-            duration: 300
-            easing.type: Easing.OutCubic
-        }
+        NumberAnimation { properties: "x,y"; duration: 300; easing.type: Easing.OutCubic }
     }
 
     // Placeholder when empty

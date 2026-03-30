@@ -70,6 +70,7 @@ qt_add_qml_module(LexTyp
         qml/blocks/BlockToolbar.qml
         qml/blocks/BlockDelegate.qml
         qml/blocks/BlockListView.qml
+    NO_CACHEGEN
 )
 
 target_include_directories(LexTyp PRIVATE

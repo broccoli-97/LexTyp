@@ -2,10 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// Outer MouseArea — stays in ListView layout, never moves.
-// The visual card inside is what gets reparented & dragged.
-MouseArea {
-    id: dragArea
+Item {
+    id: delegateRoot
     width: ListView.view ? ListView.view.width : 300
     implicitHeight: card.height
 
@@ -17,10 +15,9 @@ MouseArea {
     required property string prefix
     required property string suffix
 
-    property int currentNodeType: nodeType
     property bool held: false
+    property int lastReorderIndex: -1
 
-    // Per-type color palette
     readonly property color typeColor: {
         switch (nodeType) {
         case 0: return "#1565C0"
@@ -49,54 +46,20 @@ MouseArea {
         }
     }
 
-    // Drag setup — only drag the card, not the delegate
-    drag.target: held ? card : undefined
-    drag.axis: Drag.YAxis
-
-    hoverEnabled: true
-
-    onPressAndHold: held = true
-    onReleased: {
-        if (held) {
-            held = false
-            // Sync visual reorder back to the C++ model
-            var vis = DelegateModel.model
-            if (vis) {
-                // Get the current visual order and determine the move
-                var fromModel = dragArea.index
-                var toVisual = dragArea.DelegateModel.itemsIndex
-                // The visual index IS the target position after all the visual moves
-                if (fromModel !== toVisual) {
-                    documentModel.moveNode(fromModel, toVisual)
-                }
-            }
-        }
-    }
-
-    // Placeholder — shows where the card was while it's being dragged
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: 4
-        radius: 8
-        color: "#F5F5F5"
-        border.color: "#E0E0E0"
-        border.width: 1
-        visible: held
-    }
-
-    // ── The visual card — reparented to ListView root during drag ──
     Rectangle {
         id: card
-        width: dragArea.width - 16
+        width: delegateRoot.width - 16
         height: cardContent.implicitHeight + 6
         x: 8
         radius: 8
 
-        color: held ? Qt.darker(dragArea.typeBg, 1.05)
-                    : (dragArea.containsMouse ? dragArea.typeHoverBg : dragArea.typeBg)
+        HoverHandler { id: hoverHandler }
 
-        border.color: cardFocused ? dragArea.typeColor
-                                  : (dragArea.containsMouse ? Qt.darker(dragArea.typeColor, 0.6) : "#E0E0E0")
+        color: held ? Qt.darker(delegateRoot.typeBg, 1.05)
+                    : (hoverHandler.hovered ? delegateRoot.typeHoverBg : delegateRoot.typeBg)
+
+        border.color: cardFocused ? delegateRoot.typeColor
+                                  : (hoverHandler.hovered ? Qt.darker(delegateRoot.typeColor, 0.6) : "#E0E0E0")
         border.width: cardFocused ? 2 : 1
 
         property bool cardFocused: {
@@ -109,17 +72,12 @@ MouseArea {
         Behavior on color { ColorAnimation { duration: 120 } }
         Behavior on border.color { ColorAnimation { duration: 120 } }
 
-        Drag.active: dragArea.held
-        Drag.source: dragArea
-        Drag.hotSpot.x: width / 2
-        Drag.hotSpot.y: height / 2
-
-        // Reparent to ListView root during drag so it floats above everything
+        // Reparent to ListView during drag — position set only by mouse handler
         states: State {
-            when: dragArea.held
+            when: delegateRoot.held
             ParentChange {
                 target: card
-                parent: dragArea.ListView.view
+                parent: delegateRoot.ListView.view
             }
             PropertyChanges {
                 target: card
@@ -136,9 +94,8 @@ MouseArea {
             anchors.bottom: parent.bottom
             anchors.margins: 4
             radius: 2
-            color: dragArea.typeColor
-            opacity: card.cardFocused ? 1.0 : (dragArea.containsMouse ? 0.5 : 0.2)
-
+            color: delegateRoot.typeColor
+            opacity: card.cardFocused ? 1.0 : (hoverHandler.hovered ? 0.5 : 0.2)
             Behavior on opacity { NumberAnimation { duration: 150 } }
         }
 
@@ -151,7 +108,7 @@ MouseArea {
             anchors.bottomMargin: -4
             color: "#20000000"
             radius: parent.radius
-            visible: dragArea.held
+            visible: delegateRoot.held
             z: -1
         }
 
@@ -159,14 +116,12 @@ MouseArea {
         transform: Scale {
             origin.x: card.width / 2
             origin.y: card.height / 2
-            xScale: dragArea.held ? 1.02 : 1.0
-            yScale: dragArea.held ? 1.02 : 1.0
-
+            xScale: delegateRoot.held ? 1.02 : 1.0
+            yScale: delegateRoot.held ? 1.02 : 1.0
             Behavior on xScale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
             Behavior on yScale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         }
 
-        // ── Card content ──
         RowLayout {
             id: cardContent
             anchors.fill: parent
@@ -176,15 +131,66 @@ MouseArea {
             Item {
                 Layout.preferredWidth: 24
                 Layout.fillHeight: true
-                opacity: dragArea.containsMouse || dragArea.held ? 1.0 : 0.0
-
+                opacity: hoverHandler.hovered || delegateRoot.held ? 1.0 : 0.0
                 Behavior on opacity { NumberAnimation { duration: 150 } }
 
                 Label {
                     anchors.centerIn: parent
                     text: "\u22EE\u22EE"
                     font.pixelSize: 14
-                    color: dragArea.held ? dragArea.typeColor : "#BDBDBD"
+                    color: delegateRoot.held ? delegateRoot.typeColor : "#BDBDBD"
+                }
+
+                MouseArea {
+                    id: dragHandle
+                    anchors.fill: parent
+                    cursorShape: Qt.OpenHandCursor
+
+                    onPressed: function(mouse) {
+                        mouse.accepted = true
+                        delegateRoot.lastReorderIndex = delegateRoot.index
+                        delegateRoot.held = true
+                        card.x = 8
+                        card.y = delegateRoot.mapToItem(delegateRoot.ListView.view, 0, 0).y
+                        delegateRoot.ListView.view.interactive = false
+                    }
+
+                    onPositionChanged: function(mouse) {
+                        if (!delegateRoot.held) return
+                         card.y = dragHandle.mapToItem(delegateRoot.ListView.view, 0, mouseY).y - card.height / 2
+
+                        var listView = delegateRoot.ListView.view
+                        if (!listView) return
+
+                        var cardCenter = card.y + card.height / 2
+                        var itemCount = listView.count
+                        var newTargetIndex = -1
+
+                        for (var i = 0; i < itemCount; i++) {
+                            var item = listView.itemAtIndex(i)
+                            if (item && item !== delegateRoot) {
+                                var itemPos = item.mapToItem(listView, 0, 0)
+                                var itemCenter = itemPos.y + item.height / 2
+                                if (Math.abs(cardCenter - itemCenter) < item.height / 2) {
+                                    newTargetIndex = i
+                                    break
+                                }
+                            }
+                        }
+
+                        if (newTargetIndex !== -1 && newTargetIndex !== delegateRoot.lastReorderIndex) {
+                            documentModel.moveNode(delegateRoot.lastReorderIndex, newTargetIndex)
+                            delegateRoot.lastReorderIndex = newTargetIndex
+                        }
+                    }
+
+                    onReleased: {
+                        if (!delegateRoot.held) return
+                        delegateRoot.held = false
+                        var listView = delegateRoot.ListView.view
+                        if (listView) listView.interactive = true
+                        delegateRoot.lastReorderIndex = -1
+                    }
                 }
             }
 
@@ -201,7 +207,7 @@ MouseArea {
                     id: blockLoader
                     width: parent.width
                     sourceComponent: {
-                        switch (dragArea.nodeType) {
+                        switch (delegateRoot.nodeType) {
                         case 0: return titleComponent
                         case 1: return paragraphComponent
                         case 2: return citationComponent
@@ -218,85 +224,51 @@ MouseArea {
                 Layout.alignment: Qt.AlignTop
                 Layout.topMargin: 8
                 spacing: 2
-                opacity: dragArea.containsMouse && !dragArea.held ? 1.0 : 0.0
+                opacity: hoverHandler.hovered && !delegateRoot.held ? 1.0 : 0.0
                 visible: opacity > 0
-
                 Behavior on opacity { NumberAnimation { duration: 150 } }
 
                 ToolButton {
                     width: 24; height: 24
                     text: "\u2191"
                     font.pixelSize: 14
-                    visible: dragArea.index > 0
-                    onClicked: documentModel.moveNode(dragArea.index, dragArea.index - 1)
-
+                    visible: delegateRoot.index > 0
+                    onClicked: documentModel.moveNode(delegateRoot.index, delegateRoot.index - 1)
                     ToolTip.visible: hovered
                     ToolTip.text: "Move block up"
-
-                    background: Rectangle {
-                        radius: 4
-                        color: parent.hovered ? "#E8EAF6" : "transparent"
-                    }
+                    background: Rectangle { radius: 4; color: parent.hovered ? "#E8EAF6" : "transparent" }
                 }
 
                 ToolButton {
                     width: 24; height: 24
                     text: "\u2193"
                     font.pixelSize: 14
-                    visible: dragArea.index < documentModel.nodeCount() - 1
-                    onClicked: documentModel.moveNode(dragArea.index, dragArea.index + 1)
-
+                    visible: delegateRoot.index < documentModel.nodeCount() - 1
+                    onClicked: documentModel.moveNode(delegateRoot.index, delegateRoot.index + 1)
                     ToolTip.visible: hovered
                     ToolTip.text: "Move block down"
-
-                    background: Rectangle {
-                        radius: 4
-                        color: parent.hovered ? "#E8EAF6" : "transparent"
-                    }
+                    background: Rectangle { radius: 4; color: parent.hovered ? "#E8EAF6" : "transparent" }
                 }
 
                 ToolButton {
                     width: 24; height: 24
                     text: "+"
                     font.pixelSize: 14
-                    onClicked: documentModel.insertNodeBelow(dragArea.index, 1)
-
+                    onClicked: documentModel.insertNodeBelow(delegateRoot.index, 1)
                     ToolTip.visible: hovered
                     ToolTip.text: "Add block below"
-
-                    background: Rectangle {
-                        radius: 4
-                        color: parent.hovered ? "#E3F2FD" : "transparent"
-                    }
+                    background: Rectangle { radius: 4; color: parent.hovered ? "#E3F2FD" : "transparent" }
                 }
 
                 ToolButton {
                     width: 24; height: 24
                     text: "\u00D7"
                     font.pixelSize: 14
-                    onClicked: documentModel.removeNode(dragArea.index)
-
+                    onClicked: documentModel.removeNode(delegateRoot.index)
                     ToolTip.visible: hovered
                     ToolTip.text: "Delete block"
-
-                    background: Rectangle {
-                        radius: 4
-                        color: parent.hovered ? "#FFEBEE" : "transparent"
-                    }
+                    background: Rectangle { radius: 4; color: parent.hovered ? "#FFEBEE" : "transparent" }
                 }
-            }
-        }
-    }
-
-    // ── Drop area — triggers visual reorder via DelegateModel ──
-    DropArea {
-        anchors { fill: parent; margins: 8 }
-        onEntered: function(drag) {
-            var from = drag.source.DelegateModel.itemsIndex
-            var to   = dragArea.DelegateModel.itemsIndex
-            if (from !== to) {
-                var vis = dragArea.DelegateModel.model
-                vis.items.move(from, to)
             }
         }
     }
@@ -304,16 +276,14 @@ MouseArea {
     function bindProperties() {
         var item = blockLoader.item
         if (!item) return
-
-        item.blockIndex = Qt.binding(function() { return dragArea.index })
-        item.blockContent = Qt.binding(function() { return dragArea.content })
-
+        item.blockIndex = Qt.binding(function() { return delegateRoot.index })
+        item.blockContent = Qt.binding(function() { return delegateRoot.content })
         if (item.hasOwnProperty("blockLevel"))
-            item.blockLevel = Qt.binding(function() { return dragArea.level })
-        if (item.hasOwnProperty("blockPrefix"))
-            item.blockPrefix = Qt.binding(function() { return dragArea.prefix })
-        if (item.hasOwnProperty("blockSuffix"))
-            item.blockSuffix = Qt.binding(function() { return dragArea.suffix })
+            item.blockLevel = Qt.binding(function() { return delegateRoot.level })
+        if (item.hasOwnProperty("blockPrefix"))                                                   
+            item.blockPrefix = Qt.binding(function() { return delegateRoot.prefix })              
+        if (item.hasOwnProperty("blockSuffix"))                                                  
+            item.blockSuffix = Qt.binding(function() { return delegateRoot.suffix })
     }
 
     Component {
