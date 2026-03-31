@@ -166,321 +166,350 @@ ApplicationWindow {
         anchors.fill: parent
         spacing: 0
 
-        SplitView {
+
+        RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            orientation: Qt.Horizontal
+            spacing: 0
 
-            // ── Left sidebar ──────────────────────────────────────────────────
-            SidePanel {
-                SplitView.preferredWidth: 220
-                SplitView.minimumWidth: 180
-                SplitView.maximumWidth: 320
-                referenceLibrary: referenceLibrary
-                docModel: documentModel
+            NavigationBar {
+                id: navigationBar
+                Layout.fillHeight: true
+                Layout.preferredWidth: expanded ? 200 : 48
+
+                onOutlineClicked: {
+                    sidePanel.currentIndex = 0
+                    sidePanel.visible = true
+                }
+                onReferencesClicked: {
+                    sidePanel.currentIndex = 1
+                    sidePanel.visible = true
+                }
+                onOpenClicked: {
+                    openProjectDialog.open()
+                }
+                onSettingsClicked: {
+                    // Placeholder for future settings dialog
+                    console.log("Settings clicked")
+                }
             }
+            SplitView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                orientation: Qt.Horizontal
 
-            // ── Center: editor panel ──────────────────────────────────────────
-            Rectangle {
-                SplitView.preferredWidth: root.width * 0.42
-                SplitView.minimumWidth: 300
-                color: "white"
+                // ── Left sidebar ──────────────────────────────────────────────────
+                SidePanel {
+                    id: sidePanel
+                    SplitView.preferredWidth: 220
+                    SplitView.minimumWidth: 180
+                    SplitView.maximumWidth: 320
+                    referenceLibrary: referenceLibrary
+                    docModel: documentModel
+                }
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    spacing: 0
+                // ── Center: editor panel ──────────────────────────────────────────
+                Rectangle {
+                    SplitView.preferredWidth: root.width * 0.42
+                    SplitView.minimumWidth: 300
+                    color: "white"
 
-                    // ── Header bar ────────────────────────────────────────────
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 44
-                        color: "#FAFAFA"
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 0
 
+                        // ── Header bar ────────────────────────────────────────────
                         Rectangle {
-                            anchors.bottom: parent.bottom
-                            width: parent.width
-                            height: 1
-                            color: root.borderColor
-                        }
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 44
+                            color: "#FAFAFA"
 
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 8
-                            spacing: 6
-
-                            Label {
-                                text: "Document"
-                                font.pixelSize: 14
-                                font.weight: Font.DemiBold
-                                color: "#333333"
+                            Rectangle {
+                                anchors.bottom: parent.bottom
+                                width: parent.width
+                                height: 1
+                                color: root.borderColor
                             }
 
-                            Item { Layout.fillWidth: true }
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 12
+                                anchors.rightMargin: 8
+                                spacing: 6
 
-                            // ── View toggle: Blocks / Text ────────────────────
-                            Row {
-                                spacing: 0
+                                Label {
+                                    text: "Document"
+                                    font.pixelSize: 14
+                                    font.weight: Font.DemiBold
+                                    color: "#333333"
+                                }
 
-                                AbstractButton {
-                                    id: blocksToggle
-                                    height: 28
-                                    implicitWidth: contentRow.implicitWidth + 16
+                                Item { Layout.fillWidth: true }
 
-                                    contentItem: Row {
-                                        id: contentRow
-                                        spacing: 4
-                                        leftPadding: 8
-                                        rightPadding: 8
-                                        Label {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            text: "\u229E"   // ⊞
-                                            font.pixelSize: 12
-                                            color: !rawEditMode ? root.accentColor : "#757575"
+                                // ── View toggle: Blocks / Text ────────────────────
+                                Row {
+                                    spacing: 0
+
+                                    AbstractButton {
+                                        id: blocksToggle
+                                        height: 28
+                                        implicitWidth: contentRow.implicitWidth + 16
+
+                                        contentItem: Row {
+                                            id: contentRow
+                                            spacing: 4
+                                            leftPadding: 8
+                                            rightPadding: 8
+                                            Label {
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                text: "\u229E"   // ⊞
+                                                font.pixelSize: 12
+                                                color: !rawEditMode ? root.accentColor : "#757575"
+                                            }
+                                            Label {
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                text: "Blocks"
+                                                font.pixelSize: 12
+                                                color: !rawEditMode ? root.accentColor : "#757575"
+                                            }
                                         }
-                                        Label {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            text: "Blocks"
-                                            font.pixelSize: 12
-                                            color: !rawEditMode ? root.accentColor : "#757575"
+                                        background: Rectangle {
+                                            radius: 4
+                                            color: !rawEditMode ? "#E8F0FE" : (blocksToggle.hovered ? "#F0F0F0" : "transparent")
+                                            border.color: !rawEditMode ? root.accentColor : root.borderColor
+                                            border.width: 1
                                         }
+                                        onClicked: rawEditMode = false
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: "Block editor"
                                     }
-                                    background: Rectangle {
-                                        radius: 4
-                                        color: !rawEditMode ? "#E8F0FE" : (blocksToggle.hovered ? "#F0F0F0" : "transparent")
-                                        border.color: !rawEditMode ? root.accentColor : root.borderColor
-                                        border.width: 1
+
+                                    Item { width: 4 }
+
+                                    AbstractButton {
+                                        id: textToggle
+                                        height: 28
+                                        implicitWidth: textToggleRow.implicitWidth + 16
+
+                                        contentItem: Row {
+                                            id: textToggleRow
+                                            spacing: 4
+                                            leftPadding: 8
+                                            rightPadding: 8
+                                            Label {
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                text: "{ }"
+                                                font.pixelSize: 11
+                                                font.family: "monospace"
+                                                color: rawEditMode ? root.accentColor : "#757575"
+                                            }
+                                            Label {
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                text: "Typst"
+                                                font.pixelSize: 12
+                                                color: rawEditMode ? root.accentColor : "#757575"
+                                            }
+                                        }
+                                        background: Rectangle {
+                                            radius: 4
+                                            color: rawEditMode ? "#E8F0FE" : (textToggle.hovered ? "#F0F0F0" : "transparent")
+                                            border.color: rawEditMode ? root.accentColor : root.borderColor
+                                            border.width: 1
+                                        }
+                                        onClicked: rawEditMode = true
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: "View generated Typst source (read-only)"
                                     }
-                                    onClicked: rawEditMode = false
-                                    ToolTip.visible: hovered
-                                    ToolTip.text: "Block editor"
                                 }
 
                                 Item { width: 4 }
 
+                                // ── Open project / .typ ───────────────────────────
                                 AbstractButton {
-                                    id: textToggle
-                                    height: 28
-                                    implicitWidth: textToggleRow.implicitWidth + 16
+                                    id: openBtn
+                                    Layout.preferredHeight: 28
+                                    padding: 0
 
                                     contentItem: Row {
-                                        id: textToggleRow
-                                        spacing: 4
-                                        leftPadding: 8
-                                        rightPadding: 8
+                                        spacing: 5
+                                        leftPadding: 10
+                                        rightPadding: 10
                                         Label {
                                             anchors.verticalCenter: parent.verticalCenter
-                                            text: "{ }"
-                                            font.pixelSize: 11
-                                            font.family: "monospace"
-                                            color: rawEditMode ? root.accentColor : "#757575"
+                                            text: "\uD83D\uDCC2"   // 📂
+                                            font.pixelSize: 13
                                         }
                                         Label {
                                             anchors.verticalCenter: parent.verticalCenter
-                                            text: "Typst"
+                                            text: "Open"
                                             font.pixelSize: 12
-                                            color: rawEditMode ? root.accentColor : "#757575"
+                                            color: openBtn.hovered ? "#333333" : "#757575"
                                         }
                                     }
                                     background: Rectangle {
-                                        radius: 4
-                                        color: rawEditMode ? "#E8F0FE" : (textToggle.hovered ? "#F0F0F0" : "transparent")
-                                        border.color: rawEditMode ? root.accentColor : root.borderColor
-                                        border.width: 1
+                                        radius: 14
+                                        color: openBtn.hovered ? "#F0F0F0" : "transparent"
+                                        border.color: openBtn.hovered ? "#D0D0D0" : "transparent"
                                     }
-                                    onClicked: rawEditMode = true
+                                    onClicked: openProjectDialog.open()
                                     ToolTip.visible: hovered
-                                    ToolTip.text: "View generated Typst source (read-only)"
+                                    ToolTip.delay: 600
+                                    ToolTip.text: "Open a project (.zip) or Typst file (.typ)"
                                 }
-                            }
 
-                            Item { width: 4 }
-
-                            // ── Open project / .typ ───────────────────────────
-                            AbstractButton {
-                                id: openBtn
-                                Layout.preferredHeight: 28
-                                padding: 0
-
-                                contentItem: Row {
-                                    spacing: 5
-                                    leftPadding: 10
-                                    rightPadding: 10
-                                    Label {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: "\uD83D\uDCC2"   // 📂
-                                        font.pixelSize: 13
-                                    }
-                                    Label {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: "Open"
-                                        font.pixelSize: 12
-                                        color: openBtn.hovered ? "#333333" : "#757575"
-                                    }
-                                }
-                                background: Rectangle {
-                                    radius: 14
-                                    color: openBtn.hovered ? "#F0F0F0" : "transparent"
-                                    border.color: openBtn.hovered ? "#D0D0D0" : "transparent"
-                                }
-                                onClicked: openProjectDialog.open()
-                                ToolTip.visible: hovered
-                                ToolTip.delay: 600
-                                ToolTip.text: "Open a project (.zip) or Typst file (.typ)"
-                            }
-
-                            // ── Load bibliography ─────────────────────────────
-                            AbstractButton {
-                                id: bibBtn
-                                Layout.preferredHeight: 28
-                                padding: 0
-
-                                contentItem: Row {
-                                    spacing: 5
-                                    leftPadding: 10
-                                    rightPadding: 10
-                                    Label {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: "\uD83D\uDCDA"   // 📚
-                                        font.pixelSize: 13
-                                    }
-                                    Label {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: ".bib"
-                                        font.pixelSize: 12
-                                        color: bibBtn.hovered ? "#333333" : "#757575"
-                                    }
-                                }
-                                background: Rectangle {
-                                    radius: 14
-                                    color: bibBtn.hovered ? "#F0F0F0" : "transparent"
-                                    border.color: bibBtn.hovered ? "#D0D0D0" : "transparent"
-                                }
-                                onClicked: openBibDialog.open()
-                                ToolTip.visible: hovered
-                                ToolTip.delay: 600
-                                ToolTip.text: "Load a BibTeX bibliography (.bib)"
-                            }
-                        }
-                    }
-
-                    // ── Block toolbar (block mode only) ───────────────────────
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: visible ? 32 : 0
-                        visible: !rawEditMode
-                        color: "#F5F5F5"
-
-                        Rectangle {
-                            anchors.bottom: parent.bottom
-                            width: parent.width
-                            height: 1
-                            color: root.borderColor
-                        }
-
-                        Row {
-                            anchors.fill: parent
-                            anchors.leftMargin: 8
-                            anchors.rightMargin: 8
-                            spacing: 2
-
-                            Repeater {
-                                model: [
-                                    { label: "Title",     type: 0, icon: "T" },
-                                    { label: "Section",   type: 3, icon: "§" },
-                                    { label: "Paragraph", type: 1, icon: "¶" }
-                                ]
-
-                                delegate: AbstractButton {
-                                    id: toolBtn
-                                    height: 24
-                                    anchors.verticalCenter: parent.verticalCenter
+                                // ── Load bibliography ─────────────────────────────
+                                AbstractButton {
+                                    id: bibBtn
+                                    Layout.preferredHeight: 28
+                                    padding: 0
 
                                     contentItem: Row {
-                                        spacing: 4
-                                        leftPadding: 8
-                                        rightPadding: 8
-                                        Rectangle {
+                                        spacing: 5
+                                        leftPadding: 10
+                                        rightPadding: 10
+                                        Label {
                                             anchors.verticalCenter: parent.verticalCenter
-                                            width: 14; height: 14; radius: 3
-                                            color: toolBtn.hovered ? root.accentColor : "#E0E0E0"
+                                            text: "\uD83D\uDCDA"   // 📚
+                                            font.pixelSize: 13
+                                        }
+                                        Label {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: ".bib"
+                                            font.pixelSize: 12
+                                            color: bibBtn.hovered ? "#333333" : "#757575"
+                                        }
+                                    }
+                                    background: Rectangle {
+                                        radius: 14
+                                        color: bibBtn.hovered ? "#F0F0F0" : "transparent"
+                                        border.color: bibBtn.hovered ? "#D0D0D0" : "transparent"
+                                    }
+                                    onClicked: openBibDialog.open()
+                                    ToolTip.visible: hovered
+                                    ToolTip.delay: 600
+                                    ToolTip.text: "Load a BibTeX bibliography (.bib)"
+                                }
+                            }
+                        }
+
+                        // ── Block toolbar (block mode only) ───────────────────────
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: visible ? 32 : 0
+                            visible: !rawEditMode
+                            color: "#F5F5F5"
+
+                            Rectangle {
+                                anchors.bottom: parent.bottom
+                                width: parent.width
+                                height: 1
+                                color: root.borderColor
+                            }
+
+                            Row {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                spacing: 2
+
+                                Repeater {
+                                    model: [
+                                        { label: "Title",     type: 0, icon: "T" },
+                                        { label: "Section",   type: 3, icon: "§" },
+                                        { label: "Paragraph", type: 1, icon: "¶" }
+                                    ]
+
+                                    delegate: AbstractButton {
+                                        id: toolBtn
+                                        height: 24
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        contentItem: Row {
+                                            spacing: 4
+                                            leftPadding: 8
+                                            rightPadding: 8
+                                            Rectangle {
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                width: 14; height: 14; radius: 3
+                                                color: toolBtn.hovered ? root.accentColor : "#E0E0E0"
+                                                Label {
+                                                    anchors.centerIn: parent
+                                                    text: modelData.icon
+                                                    font.pixelSize: 9
+                                                    font.bold: true
+                                                    color: toolBtn.hovered ? "white" : "#757575"
+                                                }
+                                            }
                                             Label {
-                                                anchors.centerIn: parent
-                                                text: modelData.icon
-                                                font.pixelSize: 9
-                                                font.bold: true
-                                                color: toolBtn.hovered ? "white" : "#757575"
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                text: modelData.label
+                                                font.pixelSize: 11
+                                                color: toolBtn.hovered ? "#333333" : "#616161"
                                             }
                                         }
-                                        Label {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            text: modelData.label
-                                            font.pixelSize: 11
-                                            color: toolBtn.hovered ? "#333333" : "#616161"
+                                        background: Rectangle {
+                                            radius: 12
+                                            color: toolBtn.hovered ? "#EBEBEB" : "transparent"
                                         }
+                                        onClicked: documentModel.insertNode(documentModel.nodeCount(), modelData.type)
+                                        ToolTip.visible: hovered
+                                        ToolTip.delay: 500
+                                        ToolTip.text: "Add " + modelData.label.toLowerCase() + " block at end"
                                     }
-                                    background: Rectangle {
-                                        radius: 12
-                                        color: toolBtn.hovered ? "#EBEBEB" : "transparent"
-                                    }
-                                    onClicked: documentModel.insertNode(documentModel.nodeCount(), modelData.type)
-                                    ToolTip.visible: hovered
-                                    ToolTip.delay: 500
-                                    ToolTip.text: "Add " + modelData.label.toLowerCase() + " block at end"
                                 }
                             }
                         }
-                    }
 
-                    // ── Content area: block editor OR raw text ────────────────
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
+                        // ── Content area: block editor OR raw text ────────────────
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
 
-                        // Block editor
-                        BlockListView {
-                            anchors.fill: parent
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 12
-                            anchors.topMargin: 4
-                            sourceModel: documentModel
-                            visible: !rawEditMode
-                        }
-
-                        // Raw Typst editor
-                        Rectangle {
-                            anchors.fill: parent
-                            visible: rawEditMode
-                            color: "#1E1E1E"
-
-                            ScrollView {
+                            // Block editor
+                            BlockListView {
                                 anchors.fill: parent
-                                clip: true
+                                anchors.leftMargin: 12
+                                anchors.rightMargin: 12
+                                anchors.topMargin: 4
+                                sourceModel: documentModel
+                                visible: !rawEditMode
+                            }
 
-                                TextArea {
-                                    id: rawEditor
-                                    readOnly: true
-                                    wrapMode: TextArea.NoWrap
-                                    font.family: "monospace"
-                                    font.pixelSize: 12
-                                    color: "#D4D4D4"
-                                    selectionColor: root.accentColor
-                                    selectedTextColor: "white"
-                                    leftPadding: 16
-                                    topPadding: 12
-                                    background: null
+                            // Raw Typst editor
+                            Rectangle {
+                                anchors.fill: parent
+                                visible: rawEditMode
+                                color: "#1E1E1E"
+
+                                ScrollView {
+                                    anchors.fill: parent
+                                    clip: true
+
+                                    TextArea {
+                                        id: rawEditor
+                                        readOnly: true
+                                        wrapMode: TextArea.NoWrap
+                                        font.family: "monospace"
+                                        font.pixelSize: 12
+                                        color: "#D4D4D4"
+                                        selectionColor: root.accentColor
+                                        selectedTextColor: "white"
+                                        leftPadding: 16
+                                        topPadding: 12
+                                        background: null
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            // ── Right: PDF preview ────────────────────────────────────────────
-            PdfPreview {
-                id: pdfPreview
-                SplitView.preferredWidth: root.width * 0.35
-                SplitView.minimumWidth: 200
+                // ── Right: PDF preview ────────────────────────────────────────────
+                PdfPreview {
+                    id: pdfPreview
+                    SplitView.preferredWidth: root.width * 0.35
+                    SplitView.minimumWidth: 200
+                }
             }
         }
 

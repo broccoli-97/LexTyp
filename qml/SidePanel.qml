@@ -16,6 +16,8 @@ Item {
     readonly property color borderColor: "#E0E0E0"
     readonly property color bgColor: "#FAFAFA"
 
+    property alias currentIndex: tabBar.currentIndex
+
     Rectangle {
         anchors.fill: parent
         color: bgColor
@@ -25,11 +27,12 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        // Tab bar
+        // Tab bar (now optionally visible or used internally)
         TabBar {
             id: tabBar
             Layout.fillWidth: true
-            Layout.preferredHeight: 36
+            Layout.preferredHeight: visible ? 36 : 0
+            visible: false // Hidden by default since we use NavigationBar
 
             background: Rectangle {
                 color: sidePanel.bgColor
@@ -77,6 +80,23 @@ Item {
         }
 
         // Content area
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 40
+            color: "transparent"
+            visible: true
+
+            Label {
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.verticalCenter: parent.verticalCenter
+                text: tabBar.currentIndex === 0 ? "Outline" : "References"
+                font.pixelSize: 16
+                font.weight: Font.DemiBold
+                color: "#1A1A1A"
+            }
+        }
+
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true

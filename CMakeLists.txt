@@ -60,6 +60,7 @@ qt_add_qml_module(LexTyp
     VERSION 1.0
     QML_FILES
         qml/Main.qml
+        qml/NavigationBar.qml
         qml/PdfPreview.qml
         qml/SidePanel.qml
         qml/CitationPanel.qml
