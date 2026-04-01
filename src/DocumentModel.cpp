@@ -13,6 +13,9 @@
 #include <QTemporaryDir>
 #include <QTextStream>
 #include <QUrl>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QFileInfo>
 
 DocumentModel::DocumentModel(QObject* parent)
     : QAbstractListModel(parent),
@@ -304,6 +307,7 @@ void DocumentModel::loadProject(const QUrl& fileUrl) {
     QDir dir(tempDir.path());
     const QStringList typFiles = dir.entryList({QStringLiteral("*.typ")}, QDir::Files);
     const QStringList bibFiles = dir.entryList({QStringLiteral("*.bib")}, QDir::Files);
+    const QStringList jsonFiles = dir.entryList({QStringLiteral("lextyp.json")}, QDir::Files);
 
     if (!typFiles.isEmpty()) {
         QFile f(dir.filePath(typFiles.first()));
@@ -313,6 +317,22 @@ void DocumentModel::loadProject(const QUrl& fileUrl) {
 
     if (!bibFiles.isEmpty() && m_library)
         m_library->loadBibFile(dir.filePath(bibFiles.first()));
+
+    if (!jsonFiles.isEmpty()) {
+        QFile f(dir.filePath(jsonFiles.first()));
+        if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QByteArray data = f.readAll();
+            QJsonDocument doc = QJsonDocument::fromJson(data);
+            if (doc.isObject()) {
+                QJsonObject obj = doc.object();
+                if (obj.contains("citation_style")) {
+                    setCitationStyle(obj["citation_style"].toString());
+                }
+            }
+        }
+    }
+
+    m_currentProjectPath = zipPath;
 }
 
 void DocumentModel::loadBibliography(const QUrl& fileUrl) {
@@ -323,6 +343,64 @@ void DocumentModel::loadBibliography(const QUrl& fileUrl) {
     if (m_library) {
         m_library->loadBibFile(path);
     }
+}
+
+bool DocumentModel::saveProject(const QUrl& fileUrl) {
+    QString targetPath = fileUrl.toLocalFile();
+    if (targetPath.isEmpty()) {
+        targetPath = m_currentProjectPath;
+    }
+
+    if (targetPath.isEmpty()) {
+        emit requestSaveAs();
+        return false;
+    }
+
+    QTemporaryDir tempDir;
+    if (!tempDir.isValid())
+        return false;
+
+    // 1. Write the main .typ file
+    QFile typFile(tempDir.path() + QDir::separator() + "document.typ");
+    if (typFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&typFile);
+        Q_ASSERT(m_formatter);
+        out << TypstSerializer::serialize(m_nodes, m_library, *m_formatter);
+        typFile.close();
+    }
+
+    // 2. Write the .bib bibliography if a library is loaded and has a file path
+    if (m_library && !m_library->filePath().isEmpty()) {
+        QFile sourceBib(m_library->filePath());
+        if (sourceBib.exists()) {
+            QFileInfo bibInfo(m_library->filePath());
+            QString destBib = tempDir.path() + QDir::separator() + bibInfo.fileName();
+            QFile::copy(m_library->filePath(), destBib);
+        }
+    }
+
+    // 3. Write metadata file
+    QJsonObject metaObj;
+    metaObj["citation_style"] = m_citationStyle;
+    QJsonDocument metaDoc(metaObj);
+    QFile metaFile(tempDir.path() + QDir::separator() + "lextyp.json");
+    if (metaFile.open(QIODevice::WriteOnly)) {
+        metaFile.write(metaDoc.toJson());
+        metaFile.close();
+    }
+
+    // 4. Zip the contents of tempDir into targetPath
+    QProcess proc;
+    QStringList args;
+    args << "-r" << "-j" << targetPath << ".";
+    proc.setWorkingDirectory(tempDir.path());
+    proc.start("zip", args);
+    if (!proc.waitForFinished(10000) || proc.exitCode() != 0) {
+        return false;
+    }
+
+    m_currentProjectPath = targetPath;
+    return true;
 }
 
 void DocumentModel::insertInlineCitation(int row, int cursorPos, const QString& key) {

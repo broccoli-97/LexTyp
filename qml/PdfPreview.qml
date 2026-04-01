@@ -15,6 +15,8 @@ Item {
     readonly property real zoomStep: 0.25
     readonly property real zoomMin: 0.25
     readonly property real zoomMax: 3.0
+    readonly property string documentsPath: documentModel.documentsPath
+    readonly property url defaultPdfSaveFile: "file://" + documentsPath + "/document.pdf"
 
     PdfManager {
         id: pdfMgr
@@ -26,6 +28,8 @@ Item {
         fileMode: FileDialog.SaveFile
         nameFilters: ["PDF files (*.pdf)"]
         defaultSuffix: "pdf"
+        currentFolder: "file://" + pdfPreview.documentsPath
+        currentFile: pdfPreview.defaultPdfSaveFile
         onAccepted: Qt.copyFile(TypstManager.lastPdfPath, savePdfDialog.selectedFile)
     }
 

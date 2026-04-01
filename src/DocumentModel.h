@@ -3,6 +3,7 @@
 
 #include <QAbstractListModel>
 #include <QQmlEngine>
+#include <QStandardPaths>
 #include <QTimer>
 #include <QVector>
 #include <memory>
@@ -18,6 +19,7 @@ class DocumentModel : public QAbstractListModel
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QString citationStyle READ citationStyle WRITE setCitationStyle NOTIFY citationStyleChanged)
+    Q_PROPERTY(QString documentsPath READ documentsPath CONSTANT)
 
 public:
     enum Roles {
@@ -56,13 +58,16 @@ public:
     Q_INVOKABLE void loadTypstFromString(const QString &source);
     Q_INVOKABLE void loadProject(const QUrl &fileUrl);
     Q_INVOKABLE void loadBibliography(const QUrl &fileUrl);
+    Q_INVOKABLE bool saveProject(const QUrl &fileUrl = QUrl());
 
     QString citationStyle() const;
+    QString documentsPath() const { return QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation); }
     Q_INVOKABLE void setCitationStyle(const QString &styleName);
 
 signals:
     void typstSourceChanged(const QString &source);
     void citationStyleChanged();
+    void requestSaveAs();
 
 private:
     void scheduleSerialization();
@@ -72,6 +77,7 @@ private:
     QVector<std::shared_ptr<DocumentNode>> m_nodes;
     QTimer m_compileTimer;
     QString m_lastSource;
+    QString m_currentProjectPath;
     ReferenceLibrary *m_library = nullptr;
     CitationStyleRegistry *m_registry;
     QString m_citationStyle = QStringLiteral("oscola");

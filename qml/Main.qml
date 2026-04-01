@@ -24,6 +24,8 @@ ApplicationWindow {
     // Raw editor state
     property bool rawEditMode: false
     property string capturedSource: ""
+    readonly property string documentsPath: documentModel.documentsPath
+    readonly property url defaultProjectSaveFile: Qt.resolvedUrl("file://" + documentsPath + "/document.zip")
 
     onRawEditModeChanged: {
         if (rawEditMode)
@@ -60,6 +62,20 @@ ApplicationWindow {
         title: "Open Bibliography"
         nameFilters: ["BibTeX files (*.bib)", "All files (*)"]
         onAccepted: referenceLibrary.loadBibFile(selectedFile.toString())
+    }
+
+    FileDialog {
+        id: saveProjectDialog
+        title: "Save Project"
+        fileMode: FileDialog.SaveFile
+        acceptLabel: "Save"
+        nameFilters: ["LexTyp project (*.zip)"]
+        defaultSuffix: "zip"
+        currentFolder: root.defaultProjectSaveFile.toString().replace(/\/[^/]*$/, "/")
+        currentFile: root.defaultProjectSaveFile
+        onAccepted: {
+            documentModel.saveProject(selectedFile)
+        }
     }
 
     // ── Compile info popup ────────────────────────────────────────────────────
@@ -144,6 +160,9 @@ ApplicationWindow {
             capturedSource = source
             TypstManager.compile(source)
         }
+        function onRequestSaveAs() {
+            saveProjectDialog.open()
+        }
     }
 
     Connections {
@@ -172,27 +191,55 @@ ApplicationWindow {
             Layout.fillHeight: true
             spacing: 0
 
-            NavigationBar {
-                id: navigationBar
+            // The NavigationBar is now placed in a fixed-width container matching its collapsed state.
+            // When it expands, its visual width increases by floating over (z: 10).
+            Item {
                 Layout.fillHeight: true
-                Layout.preferredWidth: expanded ? 200 : 48
+                Layout.preferredWidth: 48 // Matches Nav bar's collapsed width, so main content doesn't shift
+                z: 10
 
-                onOutlineClicked: {
-                    sidePanel.currentIndex = 0
-                    sidePanel.visible = true
-                }
-                onReferencesClicked: {
-                    sidePanel.currentIndex = 1
-                    sidePanel.visible = true
-                }
-                onOpenClicked: {
-                    openProjectDialog.open()
-                }
-                onSettingsClicked: {
-                    // Placeholder for future settings dialog
-                    console.log("Settings clicked")
+                NavigationBar {
+                    id: navigationBar
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+
+                    // Added mouse area to detect enter/exit for auto-expand/collapse
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        propagateComposedEvents: true
+
+                        onEntered: navigationBar.expanded = true
+                        onExited: navigationBar.expanded = false
+
+                        // We need this to pass clicks down to the buttons
+                        onClicked: (mouse) => mouse.accepted = false
+                        onPressed: (mouse) => mouse.accepted = false
+                        onReleased: (mouse) => mouse.accepted = false
+                    }
+
+                    onOutlineClicked: {
+                        sidePanel.currentIndex = 0
+                        sidePanel.visible = true
+                    }
+                    onReferencesClicked: {
+                        sidePanel.currentIndex = 1
+                        sidePanel.visible = true
+                    }
+                    onOpenClicked: {
+                        openProjectDialog.open()
+                    }
+                    onSaveClicked: {
+                        documentModel.saveProject()
+                    }
+                    onSettingsClicked: {
+                        // Placeholder for future settings dialog
+                        console.log("Settings clicked")
+                    }
                 }
             }
+
             SplitView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
