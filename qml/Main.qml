@@ -535,7 +535,7 @@ ApplicationWindow {
                                     TextArea {
                                         id: rawEditor
                                         readOnly: true
-                                        wrapMode: TextArea.NoWrap
+                                        wrapMode: TextArea.Wrap
                                         font.family: "monospace"
                                         font.pixelSize: 12
                                         color: "#D4D4D4"

@@ -19,8 +19,24 @@ Item {
 
     property string searchQuery: ""
     property var filteredEntries: []
+    property var selectedEntry: null
 
     readonly property var tabModel: ["All", "Cases", "Statutes", "Books", "Academic"]
+
+    function fieldLabel(key) {
+        var labels = {
+            "title": "Title", "author": "Author", "year": "Year",
+            "journal": "Journal", "volume": "Volume", "number": "Number",
+            "pages": "Pages", "publisher": "Publisher", "address": "Address",
+            "edition": "Edition", "editor": "Editor", "booktitle": "Book Title",
+            "series": "Series", "chapter": "Chapter", "school": "School",
+            "institution": "Institution", "court": "Court", "doi": "DOI",
+            "url": "URL", "note": "Note", "abstract": "Abstract",
+            "keywords": "Keywords", "isbn": "ISBN", "issn": "ISSN",
+            "howpublished": "How Published", "month": "Month"
+        }
+        return labels[key] || key.charAt(0).toUpperCase() + key.slice(1)
+    }
 
     function isAcademicType(t) {
         return t !== "case" && t !== "legislation" && t !== "book"
@@ -123,8 +139,185 @@ Item {
         anchors.fill: parent
         spacing: 0
 
+        // ─── Detail View ───
+        Item {
+            id: detailView
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: citationPanel.selectedEntry !== null
+
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 0
+
+                // Back button + type badge header
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 8
+                    Layout.rightMargin: 8
+                    Layout.topMargin: 8
+                    spacing: 8
+
+                    Button {
+                        Layout.preferredWidth: 32
+                        Layout.preferredHeight: 32
+                        flat: true
+                        text: "\u2190"
+                        font.pixelSize: 16
+
+                        background: Rectangle {
+                            radius: 4
+                            color: parent.hovered ? "#F5F5F5" : "transparent"
+                        }
+
+                        onClicked: citationPanel.selectedEntry = null
+                    }
+
+                    Rectangle {
+                        Layout.preferredHeight: 22
+                        Layout.preferredWidth: detailBadgeText.implicitWidth + 14
+                        radius: 4
+                        color: citationPanel.selectedEntry ? citationPanel.badgeInfo(citationPanel.selectedEntry.type).bg : "transparent"
+
+                        Label {
+                            id: detailBadgeText
+                            anchors.centerIn: parent
+                            text: citationPanel.selectedEntry ? citationPanel.badgeInfo(citationPanel.selectedEntry.type).label : ""
+                            font.pixelSize: 11
+                            font.bold: true
+                            color: citationPanel.selectedEntry ? citationPanel.badgeInfo(citationPanel.selectedEntry.type).fg : "#000"
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+                }
+
+                // Citation key
+                Label {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 12
+                    Layout.rightMargin: 12
+                    Layout.topMargin: 8
+                    text: citationPanel.selectedEntry ? "@" + citationPanel.selectedEntry.key : ""
+                    font.pixelSize: 11
+                    font.family: "monospace"
+                    color: citationPanel.accentColor
+                }
+
+                // Title
+                Label {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 12
+                    Layout.rightMargin: 12
+                    Layout.topMargin: 4
+                    text: {
+                        if (!citationPanel.selectedEntry) return ""
+                        var f = citationPanel.selectedEntry.fields
+                        if (citationPanel.selectedEntry.type === "case")
+                            return f.author || f.title || citationPanel.selectedEntry.key
+                        return f.title || citationPanel.selectedEntry.key
+                    }
+                    font.pixelSize: 14
+                    font.bold: true
+                    wrapMode: Text.Wrap
+                    color: "#212121"
+                }
+
+                // Divider
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    Layout.leftMargin: 12
+                    Layout.rightMargin: 12
+                    Layout.topMargin: 10
+                    Layout.bottomMargin: 6
+                    color: citationPanel.borderColor
+                }
+
+                // Fields list
+                Flickable {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.leftMargin: 12
+                    Layout.rightMargin: 12
+                    contentHeight: fieldsColumn.implicitHeight
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    ColumnLayout {
+                        id: fieldsColumn
+                        width: parent.width
+                        spacing: 8
+
+                        Repeater {
+                            model: {
+                                if (!citationPanel.selectedEntry) return []
+                                var f = citationPanel.selectedEntry.fields
+                                var keys = Object.keys(f)
+                                var result = []
+                                for (var i = 0; i < keys.length; i++) {
+                                    if (f[keys[i]] && f[keys[i]].length > 0)
+                                        result.push({ fieldKey: keys[i], fieldValue: f[keys[i]] })
+                                }
+                                return result
+                            }
+
+                            ColumnLayout {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                spacing: 1
+
+                                Label {
+                                    text: citationPanel.fieldLabel(modelData.fieldKey)
+                                    font.pixelSize: 10
+                                    font.bold: true
+                                    color: "#757575"
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: modelData.fieldValue
+                                    font.pixelSize: 12
+                                    wrapMode: Text.Wrap
+                                    color: "#424242"
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Insert button
+                Button {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 32
+                    Layout.margins: 12
+                    text: "Insert Citation"
+                    font.pixelSize: 12
+
+                    background: Rectangle {
+                        radius: 4
+                        color: parent.hovered ? citationPanel.accentColor : citationPanel.accentLight
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        font: parent.font
+                        color: parent.hovered ? "white" : citationPanel.accentColor
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    onClicked: {
+                        if (citationPanel.selectedEntry)
+                            citationPanel.citationInsertRequested(citationPanel.selectedEntry.key)
+                    }
+                }
+            }
+        }
+
+        // ─── List View ───
+
         // Search bar
         Rectangle {
+            visible: citationPanel.selectedEntry === null
             Layout.fillWidth: true
             Layout.preferredHeight: 40
             Layout.leftMargin: 8
@@ -164,6 +357,7 @@ Item {
         // Category tabs
         TabBar {
             id: categoryBar
+            visible: citationPanel.selectedEntry === null
             Layout.fillWidth: true
             Layout.preferredHeight: 32
             Layout.topMargin: 4
@@ -204,6 +398,7 @@ Item {
 
         // Reference cards list
         ListView {
+            visible: citationPanel.selectedEntry === null
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.margins: 8
@@ -299,9 +494,13 @@ Item {
                 MouseArea {
                     id: cardMa
                     anchors.fill: parent
+                    z: -1
                     hoverEnabled: true
-                    propagateComposedEvents: true
-                    acceptedButtons: Qt.NoButton
+                    cursorShape: Qt.PointingHandCursor
+
+                    onClicked: {
+                        citationPanel.selectedEntry = referenceLibrary.entryByKey(modelData.key)
+                    }
                 }
             }
 
@@ -320,6 +519,7 @@ Item {
 
         // Active citation style label
         Rectangle {
+            visible: citationPanel.selectedEntry === null
             Layout.fillWidth: true
             Layout.preferredHeight: 28
             Layout.leftMargin: 8
