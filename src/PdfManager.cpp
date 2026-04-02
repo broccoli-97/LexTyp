@@ -129,3 +129,30 @@ QSizeF PdfManager::pageSize(int page) const
         return QSizeF();
     return m_document.pagePointSize(page);
 }
+
+void PdfManager::setZoomLevel(qreal level) {
+    level = qBound(kZoomMin, level, kZoomMax);
+    if (qFuzzyCompare(m_zoomLevel, level))
+        return;
+    m_zoomLevel = level;
+    emit zoomLevelChanged();
+}
+
+QString PdfManager::pageCountText() const {
+    int count = m_document.pageCount();
+    if (count == 0)
+        return QString();
+    return QStringLiteral("%1 page%2").arg(count).arg(count > 1 ? QStringLiteral("s") : QString());
+}
+
+void PdfManager::zoomIn() {
+    setZoomLevel(qRound((m_zoomLevel + kZoomStep) * 100.0) / 100.0);
+}
+
+void PdfManager::zoomOut() {
+    setZoomLevel(qRound((m_zoomLevel - kZoomStep) * 100.0) / 100.0);
+}
+
+void PdfManager::zoomReset() {
+    setZoomLevel(1.0);
+}

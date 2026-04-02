@@ -8,15 +8,9 @@ Item {
     id: pdfPreview
 
     property alias pdfManager: pdfMgr
-    property real zoomLevel: 1.0
 
     readonly property color previewBg: "#3C3C3C"
     readonly property color headerBg: "#2C2C2C"
-    readonly property real zoomStep: 0.25
-    readonly property real zoomMin: 0.25
-    readonly property real zoomMax: 3.0
-    readonly property string documentsPath: documentModel.documentsPath
-    readonly property url defaultPdfSaveFile: "file://" + documentsPath + "/document.pdf"
 
     PdfManager {
         id: pdfMgr
@@ -28,8 +22,8 @@ Item {
         fileMode: FileDialog.SaveFile
         nameFilters: ["PDF files (*.pdf)"]
         defaultSuffix: "pdf"
-        currentFolder: "file://" + pdfPreview.documentsPath
-        currentFile: pdfPreview.defaultPdfSaveFile
+        currentFolder: documentModel.defaultProjectFolderUrl
+        currentFile: "file://" + documentModel.documentsPath + "/document.pdf"
         onAccepted: Qt.copyFile(TypstManager.lastPdfPath, savePdfDialog.selectedFile)
     }
 
@@ -71,10 +65,8 @@ Item {
                     ToolButton {
                         id: zoomOutBtn
                         width: 26; height: 26
-                        enabled: pdfMgr.pageCount > 0 && pdfPreview.zoomLevel > pdfPreview.zoomMin
-                        onClicked: pdfPreview.zoomLevel =
-                            Math.max(pdfPreview.zoomMin,
-                                     Math.round((pdfPreview.zoomLevel - pdfPreview.zoomStep) * 100) / 100)
+                        enabled: pdfMgr.pageCount > 0 && pdfMgr.zoomLevel > 0.25
+                        onClicked: pdfMgr.zoomOut()
                         ToolTip.visible: hovered
                         ToolTip.text: "Zoom out"
                         contentItem: Text {
@@ -99,7 +91,7 @@ Item {
 
                         Label {
                             anchors.centerIn: parent
-                            text: Math.round(pdfPreview.zoomLevel * 100) + "%"
+                            text: Math.round(pdfMgr.zoomLevel * 100) + "%"
                             font.pixelSize: 11
                             color: pdfMgr.pageCount > 0 ? "#C8C8C8" : "#606060"
                         }
@@ -107,7 +99,7 @@ Item {
                         HoverHandler { id: percentHover }
                         TapHandler {
                             enabled: pdfMgr.pageCount > 0
-                            onTapped: pdfPreview.zoomLevel = 1.0
+                            onTapped: pdfMgr.zoomReset()
                         }
                         ToolTip.visible: percentHover.hovered
                         ToolTip.text: "Reset zoom to 100%"
@@ -117,10 +109,8 @@ Item {
                     ToolButton {
                         id: zoomInBtn
                         width: 26; height: 26
-                        enabled: pdfMgr.pageCount > 0 && pdfPreview.zoomLevel < pdfPreview.zoomMax
-                        onClicked: pdfPreview.zoomLevel =
-                            Math.min(pdfPreview.zoomMax,
-                                     Math.round((pdfPreview.zoomLevel + pdfPreview.zoomStep) * 100) / 100)
+                        enabled: pdfMgr.pageCount > 0 && pdfMgr.zoomLevel < 3.0
+                        onClicked: pdfMgr.zoomIn()
                         ToolTip.visible: hovered
                         ToolTip.text: "Zoom in"
                         contentItem: Text {
@@ -140,9 +130,7 @@ Item {
 
                 // ── Page count ───────────────────────────────────────────────
                 Label {
-                    text: pdfMgr.pageCount > 0
-                          ? pdfMgr.pageCount + " page" + (pdfMgr.pageCount > 1 ? "s" : "")
-                          : ""
+                    text: pdfMgr.pageCountText
                     font.pixelSize: 11
                     color: "#9E9E9E"
                     leftPadding: 4
@@ -183,14 +171,14 @@ Item {
 
                 // When zoomed beyond 100% the content is wider than the viewport
                 contentWidth: Math.max(width,
-                                       pdfPreview.zoomLevel * (width - 48) + 48)
+                                       pdfMgr.zoomLevel * (width - 48) + 48)
                 contentHeight: pageColumn.height + 32
 
                 Column {
                     id: pageColumn
                     // Column stretches to at least the viewport, wider on zoom-in
                     width: Math.max(flickable.width,
-                                    pdfPreview.zoomLevel * (flickable.width - 48) + 48)
+                                    pdfMgr.zoomLevel * (flickable.width - 48) + 48)
                     spacing: 16
                     topPadding: 16
 
@@ -200,7 +188,7 @@ Item {
                         // Page with drop shadow
                         Item {
                             // Explicit scaled width; centred inside the column
-                            width: pdfPreview.zoomLevel * (flickable.width - 48)
+                            width: pdfMgr.zoomLevel * (flickable.width - 48)
                             anchors.horizontalCenter: parent.horizontalCenter
 
                             property var pgSize: pdfMgr.pageSize(index)
@@ -268,7 +256,7 @@ Item {
                     policy: ScrollBar.AsNeeded
                 }
                 ScrollBar.horizontal: ScrollBar {
-                    policy: pdfPreview.zoomLevel > 1.0 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                    policy: pdfMgr.zoomLevel > 1.0 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
                 }
             }
 

@@ -16,6 +16,8 @@ class TypstManager : public QObject
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
     Q_PROPERTY(QString lastPdfPath READ lastPdfPath NOTIFY lastPdfPathChanged)
     Q_PROPERTY(qint64 lastDuration READ lastDuration NOTIFY lastDurationChanged)
+    Q_PROPERTY(QString statusText READ statusText NOTIFY statusTextChanged)
+    Q_PROPERTY(QString compilationDetail READ compilationDetail NOTIFY compilationDetailChanged)
 
 public:
     explicit TypstManager(QObject *parent = nullptr);
@@ -24,6 +26,8 @@ public:
     QString lastError() const;
     QString lastPdfPath() const;
     qint64 lastDuration() const;
+    QString statusText() const;
+    QString compilationDetail() const;
 
     Q_INVOKABLE void compile(const QString &typContent);
 
@@ -32,6 +36,8 @@ signals:
     void lastErrorChanged();
     void lastPdfPathChanged();
     void lastDurationChanged();
+    void statusTextChanged();
+    void compilationDetailChanged();
     void compilationFinished(const QString &pdfPath);
     void compilationFailed(const QString &errorLog);
 

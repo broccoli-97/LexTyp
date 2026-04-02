@@ -17,122 +17,13 @@ Item {
     readonly property color accentLight: "#E3F2FD"
     readonly property color borderColor: "#E0E0E0"
 
-    property string searchQuery: ""
-    property var filteredEntries: []
     property var selectedEntry: null
 
     readonly property var tabModel: ["All", "Cases", "Statutes", "Books", "Academic"]
 
-    function fieldLabel(key) {
-        var labels = {
-            "title": "Title", "author": "Author", "year": "Year",
-            "journal": "Journal", "volume": "Volume", "number": "Number",
-            "pages": "Pages", "publisher": "Publisher", "address": "Address",
-            "edition": "Edition", "editor": "Editor", "booktitle": "Book Title",
-            "series": "Series", "chapter": "Chapter", "school": "School",
-            "institution": "Institution", "court": "Court", "doi": "DOI",
-            "url": "URL", "note": "Note", "abstract": "Abstract",
-            "keywords": "Keywords", "isbn": "ISBN", "issn": "ISSN",
-            "howpublished": "How Published", "month": "Month"
-        }
-        return labels[key] || key.charAt(0).toUpperCase() + key.slice(1)
-    }
-
-    function isAcademicType(t) {
-        return t !== "case" && t !== "legislation" && t !== "book"
-    }
-
-    function badgeInfo(entryType) {
-        switch (entryType) {
-        case "case":          return { label: "Case",       bg: "#FFF3E0", fg: "#E65100" }
-        case "legislation":   return { label: "Statute",    bg: "#E8F5E9", fg: "#2E7D32" }
-        case "book":          return { label: "Book",       bg: "#E3F2FD", fg: "#1565C0" }
-        case "article":       return { label: "Article",    bg: "#F3E5F5", fg: "#6A1B9A" }
-        case "inproceedings": return { label: "Conference", bg: "#FFF8E1", fg: "#F57F17" }
-        case "conference":    return { label: "Conference", bg: "#FFF8E1", fg: "#F57F17" }
-        case "incollection":  return { label: "Chapter",    bg: "#E0F2F1", fg: "#00695C" }
-        case "inbook":        return { label: "Chapter",    bg: "#E0F2F1", fg: "#00695C" }
-        case "phdthesis":     return { label: "PhD Thesis", bg: "#FCE4EC", fg: "#880E4F" }
-        case "mastersthesis": return { label: "MA Thesis",  bg: "#FCE4EC", fg: "#880E4F" }
-        case "techreport":    return { label: "Report",     bg: "#EFEBE9", fg: "#4E342E" }
-        case "misc":          return { label: "Misc",       bg: "#ECEFF1", fg: "#37474F" }
-        case "online":        return { label: "Online",     bg: "#E8EAF6", fg: "#283593" }
-        default:              return { label: entryType,    bg: "#ECEFF1", fg: "#37474F" }
-        }
-    }
-
-    function secondaryInfo(entryType, f) {
-        if (entryType === "case") {
-            var parts = []
-            if (f.year) parts.push("[" + f.year + "]")
-            if (f.court) parts.push(f.court)
-            if (f.number) parts.push(f.number)
-            return parts.join(" ")
-        }
-        if (entryType === "legislation") {
-            return f.year ? f.year : ""
-        }
-        if (entryType === "article") {
-            var aParts = []
-            if (f.author) aParts.push(f.author)
-            if (f.journal) aParts.push(f.journal)
-            if (f.volume) aParts.push("vol. " + f.volume)
-            if (f.year) aParts.push("(" + f.year + ")")
-            return aParts.join(", ")
-        }
-        if (entryType === "inproceedings" || entryType === "conference" ||
-            entryType === "incollection" || entryType === "inbook") {
-            var cParts = []
-            if (f.author) cParts.push(f.author)
-            if (f.booktitle) cParts.push("in: " + f.booktitle)
-            if (f.year) cParts.push("(" + f.year + ")")
-            return cParts.join(", ")
-        }
-        if (entryType === "phdthesis" || entryType === "mastersthesis") {
-            var tParts = []
-            if (f.author) tParts.push(f.author)
-            if (f.school) tParts.push(f.school)
-            if (f.year) tParts.push("(" + f.year + ")")
-            return tParts.join(", ")
-        }
-        // Default: book, techreport, misc, online, etc.
-        var defParts = []
-        if (f.author) defParts.push(f.author)
-        if (f.publisher) defParts.push(f.publisher)
-        if (f.year) defParts.push(f.year)
-        return defParts.join(", ")
-    }
-
-    function refreshEntries() {
-        var typeFilter = ""
-        var academic = false
-        switch (categoryBar.currentIndex) {
-        case 0: typeFilter = ""; break
-        case 1: typeFilter = "case"; break
-        case 2: typeFilter = "legislation"; break
-        case 3: typeFilter = "book"; break
-        case 4: academic = true; break
-        }
-
-        var source
-        if (searchQuery.length > 0) {
-            source = referenceLibrary.search(searchQuery)
-        } else {
-            source = referenceLibrary.entries(academic ? "" : typeFilter)
-        }
-
-        if (academic) {
-            filteredEntries = source.filter(function(e) { return isAcademicType(e.type) })
-        } else if (typeFilter.length > 0 && searchQuery.length > 0) {
-            filteredEntries = source.filter(function(e) { return e.type === typeFilter })
-        } else {
-            filteredEntries = source
-        }
-    }
-
-    Connections {
-        target: referenceLibrary
-        function onLibraryChanged() { refreshEntries() }
+    ReferenceFilterModel {
+        id: filterModel
+        sourceModel: citationPanel.referenceLibrary
     }
 
     ColumnLayout {
@@ -177,15 +68,15 @@ Item {
                         Layout.preferredHeight: 22
                         Layout.preferredWidth: detailBadgeText.implicitWidth + 14
                         radius: 4
-                        color: citationPanel.selectedEntry ? citationPanel.badgeInfo(citationPanel.selectedEntry.type).bg : "transparent"
+                        color: citationPanel.selectedEntry ? BibEntryHelper.badgeInfo(citationPanel.selectedEntry.type).bg : "transparent"
 
                         Label {
                             id: detailBadgeText
                             anchors.centerIn: parent
-                            text: citationPanel.selectedEntry ? citationPanel.badgeInfo(citationPanel.selectedEntry.type).label : ""
+                            text: citationPanel.selectedEntry ? BibEntryHelper.badgeInfo(citationPanel.selectedEntry.type).label : ""
                             font.pixelSize: 11
                             font.bold: true
-                            color: citationPanel.selectedEntry ? citationPanel.badgeInfo(citationPanel.selectedEntry.type).fg : "#000"
+                            color: citationPanel.selectedEntry ? BibEntryHelper.badgeInfo(citationPanel.selectedEntry.type).fg : "#000"
                         }
                     }
 
@@ -210,13 +101,11 @@ Item {
                     Layout.leftMargin: 12
                     Layout.rightMargin: 12
                     Layout.topMargin: 4
-                    text: {
-                        if (!citationPanel.selectedEntry) return ""
-                        var f = citationPanel.selectedEntry.fields
-                        if (citationPanel.selectedEntry.type === "case")
-                            return f.author || f.title || citationPanel.selectedEntry.key
-                        return f.title || citationPanel.selectedEntry.key
-                    }
+                    text: citationPanel.selectedEntry
+                          ? BibEntryHelper.displayTitle(citationPanel.selectedEntry.type,
+                                                        citationPanel.selectedEntry.fields,
+                                                        citationPanel.selectedEntry.key)
+                          : ""
                     font.pixelSize: 14
                     font.bold: true
                     wrapMode: Text.Wrap
@@ -268,7 +157,7 @@ Item {
                                 spacing: 1
 
                                 Label {
-                                    text: citationPanel.fieldLabel(modelData.fieldKey)
+                                    text: BibEntryHelper.fieldLabel(modelData.fieldKey)
                                     font.pixelSize: 10
                                     font.bold: true
                                     color: "#757575"
@@ -347,8 +236,7 @@ Item {
                     background: Item {}
 
                     onTextChanged: {
-                        citationPanel.searchQuery = text
-                        refreshEntries()
+                        filterModel.searchQuery = text
                     }
                 }
             }
@@ -393,7 +281,7 @@ Item {
                 }
             }
 
-            onCurrentIndexChanged: refreshEntries()
+            onCurrentIndexChanged: filterModel.categoryIndex = currentIndex
         }
 
         // Reference cards list
@@ -404,10 +292,14 @@ Item {
             Layout.margins: 8
             clip: true
             spacing: 6
-            model: citationPanel.filteredEntries
+            model: filterModel
 
             delegate: Rectangle {
-                required property var modelData
+                required property string key
+                required property string entryType
+                required property string title
+                required property string author
+                required property var fields
                 required property int index
 
                 width: ListView.view ? ListView.view.width : 100
@@ -430,27 +322,22 @@ Item {
                         Layout.preferredHeight: 18
                         Layout.preferredWidth: typeBadgeText.implicitWidth + 12
                         radius: 3
-                        color: citationPanel.badgeInfo(modelData.type).bg
+                        color: BibEntryHelper.badgeInfo(entryType).bg
 
                         Label {
                             id: typeBadgeText
                             anchors.centerIn: parent
-                            text: citationPanel.badgeInfo(modelData.type).label
+                            text: BibEntryHelper.badgeInfo(entryType).label
                             font.pixelSize: 10
                             font.bold: true
-                            color: citationPanel.badgeInfo(modelData.type).fg
+                            color: BibEntryHelper.badgeInfo(entryType).fg
                         }
                     }
 
                     // Title / case name
                     Label {
                         Layout.fillWidth: true
-                        text: {
-                            var f = modelData.fields
-                            if (modelData.type === "case")
-                                return f.author || f.title || modelData.key
-                            return f.title || modelData.key
-                        }
+                        text: BibEntryHelper.displayTitle(entryType, fields, key)
                         font.pixelSize: 12
                         font.bold: true
                         elide: Text.ElideRight
@@ -461,7 +348,7 @@ Item {
                     Label {
                         Layout.fillWidth: true
                         visible: text.length > 0
-                        text: citationPanel.secondaryInfo(modelData.type, modelData.fields)
+                        text: BibEntryHelper.secondaryInfo(entryType, fields)
                         font.pixelSize: 10
                         elide: Text.ElideRight
                         color: "#757575"
@@ -487,7 +374,7 @@ Item {
                             verticalAlignment: Text.AlignVCenter
                         }
 
-                        onClicked: citationPanel.citationInsertRequested(modelData.key)
+                        onClicked: citationPanel.citationInsertRequested(key)
                     }
                 }
 
@@ -499,7 +386,7 @@ Item {
                     cursorShape: Qt.PointingHandCursor
 
                     onClicked: {
-                        citationPanel.selectedEntry = referenceLibrary.entryByKey(modelData.key)
+                        citationPanel.selectedEntry = referenceLibrary.entryByKey(key)
                     }
                 }
             }
@@ -507,7 +394,7 @@ Item {
             // Empty state
             Label {
                 anchors.centerIn: parent
-                visible: citationPanel.filteredEntries.length === 0
+                visible: filterModel.count === 0
                 text: referenceLibrary.entryCount === 0
                       ? "No references loaded.\nLoad a .bib file to get started."
                       : "No matching references."

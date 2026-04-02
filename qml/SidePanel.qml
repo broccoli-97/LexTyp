@@ -122,6 +122,8 @@ Item {
                             required property int nodeType
                             required property string content
                             required property int level
+                            required property int outlineIndent
+                            required property string outlineText
 
                             width: ListView.view ? ListView.view.width : 100
                             height: 44
@@ -130,7 +132,7 @@ Item {
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 8 + (nodeType === 0 ? (level - 1) * 12 : 12)
+                                anchors.leftMargin: outlineIndent
                                 anchors.rightMargin: 8
                                 spacing: 6
 
@@ -154,11 +156,7 @@ Item {
 
                                     Label {
                                         Layout.fillWidth: true
-                                        text: {
-                                            if (nodeType === 0) return content || "Untitled"
-                                            if (nodeType === 2) return "Citation: " + (content || "empty")
-                                            return content ? content.substring(0, 40) + (content.length > 40 ? "\u2026" : "") : "Empty paragraph"
-                                        }
+                                        text: outlineText
                                         font.pixelSize: nodeType === 0 ? 12 : 11
                                         font.bold: nodeType === 0
                                         elide: Text.ElideRight
@@ -193,14 +191,7 @@ Item {
                     documentModel: sidePanel.docModel
 
                     onCitationInsertRequested: function(key) {
-                        if (root.activeParagraphIndex >= 0) {
-                            // Insert inline @citekey at cursor position in active paragraph
-                            sidePanel.docModel.insertInlineCitation(root.activeParagraphIndex, root.activeCursorPosition, key)
-                        } else {
-                            // Fallback: insert standalone citation block
-                            sidePanel.docModel.insertNode(sidePanel.docModel.nodeCount(), 2)
-                            sidePanel.docModel.setNodeContent(sidePanel.docModel.nodeCount() - 1, key)
-                        }
+                        sidePanel.docModel.insertCitation(key)
                     }
                 }
             }

@@ -17,15 +17,9 @@ ApplicationWindow {
     readonly property color accentColor: "#2979FF"
     readonly property color borderColor: "#E0E0E0"
 
-    // Active paragraph tracking for inline citation insertion
-    property int activeParagraphIndex: -1
-    property int activeCursorPosition: -1
-
     // Raw editor state
     property bool rawEditMode: false
     property string capturedSource: ""
-    readonly property string documentsPath: documentModel.documentsPath
-    readonly property url defaultProjectSaveFile: Qt.resolvedUrl("file://" + documentsPath + "/document.lextyp")
 
     onRawEditModeChanged: {
         if (rawEditMode)
@@ -75,8 +69,8 @@ ApplicationWindow {
         acceptLabel: "Save"
         nameFilters: ["LexTyp project (*.lextyp)"]
         defaultSuffix: "lextyp"
-        currentFolder: root.defaultProjectSaveFile.toString().replace(/\/[^/]*$/, "/")
-        currentFile: root.defaultProjectSaveFile
+        currentFolder: documentModel.defaultProjectFolderUrl
+        currentFile: documentModel.defaultProjectSaveUrl
         onAccepted: documentModel.saveProject(selectedFile)
     }
 
@@ -143,14 +137,7 @@ ApplicationWindow {
                 clip: true
 
                 TextArea {
-                    text: {
-                        var msg = "Status: " + (TypstManager.compiling ? "Compiling..." : (TypstManager.lastError ? "Error" : "Success")) + "\n"
-                        if (TypstManager.lastDuration > 0)
-                            msg += "Duration: " + (TypstManager.lastDuration / 1000.0).toFixed(2) + "s\n"
-                        if (TypstManager.lastError)
-                            msg += "\nError Message:\n" + TypstManager.lastError
-                        return msg
-                    }
+                    text: TypstManager.compilationDetail
                     readOnly: true
                     wrapMode: TextArea.Wrap
                     font.family: "monospace"
@@ -567,13 +554,7 @@ ApplicationWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             font.pixelSize: 11
                             color: compileStatusBtn.hovered ? "#424242" : "#9E9E9E"
-                            text: {
-                                if (TypstManager.compiling) return "Compiling\u2026"
-                                if (TypstManager.lastError !== "") return "Error"
-                                if (TypstManager.lastPdfPath !== "")
-                                    return "Compiled in " + TypstManager.lastDuration + "ms"
-                                return "Ready"
-                            }
+                            text: TypstManager.statusText
                         }
                     }
 

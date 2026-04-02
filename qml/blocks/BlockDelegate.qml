@@ -15,42 +15,14 @@ Item {
     required property string prefix
     required property string suffix
 
-    property bool held: false
-    property int lastReorderIndex: -1
-    property bool reorderCooldown: false
+    required property string typeColor
+    required property string typeBg
+    required property string typeHoverBg
 
-    Timer {
-        id: reorderTimer
-        interval: 200
-        onTriggered: delegateRoot.reorderCooldown = false
-    }
-
-    readonly property color typeColor: {
-        switch (nodeType) {
-        case 0: return "#1565C0"
-        case 1: return "#546E7A"
-        case 2: return "#E65100"
-        case 3: return "#2E7D32"
-        default: return "#546E7A"
-        }
-    }
-    readonly property color typeBg: {
-        switch (nodeType) {
-        case 0: return "#F0F4FA"
-        case 1: return "#FAFAFA"
-        case 2: return "#FFF8F0"
-        case 3: return "#F2F7F2"
-        default: return "#FAFAFA"
-        }
-    }
-    readonly property color typeHoverBg: {
-        switch (nodeType) {
-        case 0: return "#E3ECF7"
-        case 1: return "#F0F0F0"
-        case 2: return "#FFEFD6"
-        case 3: return "#E5EFE5"
-        default: return "#F0F0F0"
-        }
+    // Placeholder effect: semi-transparent when this block is being dragged
+    opacity: {
+        var lv = delegateRoot.ListView.view
+        return (lv && lv.dragActive && lv.dragSourceIndex === delegateRoot.index) ? 0.3 : 1.0
     }
 
     Rectangle {
@@ -60,10 +32,16 @@ Item {
         x: 8
         radius: 8
 
-        HoverHandler { id: hoverHandler }
+        HoverHandler {
+            id: hoverHandler
+            // Suppress hover effects during drag to avoid visual noise
+            enabled: {
+                var lv = delegateRoot.ListView.view
+                return !(lv && lv.dragActive)
+            }
+        }
 
-        color: held ? Qt.darker(delegateRoot.typeBg, 1.05)
-                    : (hoverHandler.hovered ? delegateRoot.typeHoverBg : delegateRoot.typeBg)
+        color: hoverHandler.hovered ? delegateRoot.typeHoverBg : delegateRoot.typeBg
 
         border.color: cardFocused ? delegateRoot.typeColor
                                   : (hoverHandler.hovered ? Qt.darker(delegateRoot.typeColor, 0.6) : "#E0E0E0")
@@ -76,21 +54,19 @@ Item {
             return item.activeFocus
         }
 
-        Behavior on color { ColorAnimation { duration: 120 } }
-        Behavior on border.color { ColorAnimation { duration: 120 } }
-
-        // Reparent to ListView during drag — position set only by mouse handler
-        states: State {
-            when: delegateRoot.held
-            ParentChange {
-                target: card
-                parent: delegateRoot.ListView.view
+        Behavior on color {
+            enabled: {
+                var lv = delegateRoot.ListView.view
+                return !(lv && lv.dragActive)
             }
-            PropertyChanges {
-                target: card
-                z: 100
-                opacity: 0.92
+            ColorAnimation { duration: 120 }
+        }
+        Behavior on border.color {
+            enabled: {
+                var lv = delegateRoot.ListView.view
+                return !(lv && lv.dragActive)
             }
+            ColorAnimation { duration: 120 }
         }
 
         // Left accent bar
@@ -106,29 +82,6 @@ Item {
             Behavior on opacity { NumberAnimation { duration: 150 } }
         }
 
-        // Drop shadow when held
-        Rectangle {
-            anchors.fill: parent
-            anchors.topMargin: 4
-            anchors.leftMargin: 4
-            anchors.rightMargin: -4
-            anchors.bottomMargin: -4
-            color: "#20000000"
-            radius: parent.radius
-            visible: delegateRoot.held
-            z: -1
-        }
-
-        // Lift effect
-        transform: Scale {
-            origin.x: card.width / 2
-            origin.y: card.height / 2
-            xScale: delegateRoot.held ? 1.02 : 1.0
-            yScale: delegateRoot.held ? 1.02 : 1.0
-            Behavior on xScale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-            Behavior on yScale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-        }
-
         RowLayout {
             id: cardContent
             anchors.fill: parent
@@ -138,14 +91,14 @@ Item {
             Item {
                 Layout.preferredWidth: 24
                 Layout.fillHeight: true
-                opacity: hoverHandler.hovered || delegateRoot.held ? 1.0 : 0.0
+                opacity: hoverHandler.hovered ? 1.0 : 0.0
                 Behavior on opacity { NumberAnimation { duration: 150 } }
 
                 Label {
                     anchors.centerIn: parent
                     text: "\u22EE\u22EE"
                     font.pixelSize: 14
-                    color: delegateRoot.held ? delegateRoot.typeColor : "#BDBDBD"
+                    color: "#BDBDBD"
                 }
 
                 MouseArea {
@@ -155,55 +108,26 @@ Item {
 
                     onPressed: function(mouse) {
                         mouse.accepted = true
-                        delegateRoot.lastReorderIndex = delegateRoot.index
-                        delegateRoot.held = true
-                        card.x = 8
-                        card.y = delegateRoot.mapToItem(delegateRoot.ListView.view, 0, 0).y
-                        delegateRoot.ListView.view.interactive = false
+                        var listView = delegateRoot.ListView.view
+                        if (listView && listView.startDrag) {
+                            var mouseInList = dragHandle.mapToItem(listView, 0, mouseY).y
+                            listView.startDrag(delegateRoot.index, mouseInList, card)
+                        }
                     }
 
                     onPositionChanged: function(mouse) {
-                        if (!delegateRoot.held) return
-                        card.y = dragHandle.mapToItem(delegateRoot.ListView.view, 0, mouseY).y - card.height / 2
-
-                        if (delegateRoot.reorderCooldown) return
-
                         var listView = delegateRoot.ListView.view
-                        if (!listView) return
-
-                        var cardCenter = card.y + card.height / 2
-                        var itemCount = listView.count
-                        var newTargetIndex = -1
-
-                        for (var i = 0; i < itemCount; i++) {
-                            var item = listView.itemAtIndex(i)
-                            if (item && item !== delegateRoot) {
-                                var itemPos = item.mapToItem(listView, 0, 0)
-                                var itemCenter = itemPos.y + item.height / 2
-                                // Require 60% overlap to prevent borderline oscillation
-                                if (Math.abs(cardCenter - itemCenter) < item.height * 0.4) {
-                                    newTargetIndex = i
-                                    break
-                                }
-                            }
-                        }
-
-                        if (newTargetIndex !== -1 && newTargetIndex !== delegateRoot.lastReorderIndex) {
-                            delegateRoot.reorderCooldown = true
-                            reorderTimer.restart()
-                            documentModel.moveNode(delegateRoot.lastReorderIndex, newTargetIndex)
-                            delegateRoot.lastReorderIndex = newTargetIndex
+                        if (listView && listView.dragActive) {
+                            var mouseInList = dragHandle.mapToItem(listView, 0, mouseY).y
+                            listView.updateDrag(mouseInList)
                         }
                     }
 
                     onReleased: {
-                        if (!delegateRoot.held) return
-                        delegateRoot.held = false
-                        delegateRoot.reorderCooldown = false
-                        reorderTimer.stop()
                         var listView = delegateRoot.ListView.view
-                        if (listView) listView.interactive = true
-                        delegateRoot.lastReorderIndex = -1
+                        if (listView && listView.endDrag) {
+                            listView.endDrag()
+                        }
                     }
                 }
             }
@@ -238,7 +162,7 @@ Item {
                 Layout.alignment: Qt.AlignTop
                 Layout.topMargin: 8
                 spacing: 2
-                opacity: hoverHandler.hovered && !delegateRoot.held ? 1.0 : 0.0
+                opacity: hoverHandler.hovered ? 1.0 : 0.0
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: 150 } }
 
@@ -294,9 +218,9 @@ Item {
         item.blockContent = Qt.binding(function() { return delegateRoot.content })
         if (item.hasOwnProperty("blockLevel"))
             item.blockLevel = Qt.binding(function() { return delegateRoot.level })
-        if (item.hasOwnProperty("blockPrefix"))                                                   
-            item.blockPrefix = Qt.binding(function() { return delegateRoot.prefix })              
-        if (item.hasOwnProperty("blockSuffix"))                                                  
+        if (item.hasOwnProperty("blockPrefix"))
+            item.blockPrefix = Qt.binding(function() { return delegateRoot.prefix })
+        if (item.hasOwnProperty("blockSuffix"))
             item.blockSuffix = Qt.binding(function() { return delegateRoot.suffix })
     }
 

@@ -45,6 +45,9 @@ qt_add_executable(LexTyp
     src/PdfManager.cpp
     src/bib/BibParser.cpp
     src/bib/ReferenceLibrary.cpp
+    src/bib/BibEntryHelper.cpp
+    src/bib/ReferenceFilterModel.cpp
+    src/CitationRangeHelper.cpp
     src/ast/DocumentNode.cpp
     src/oscola/OscolaFormatter.cpp
     src/citation/CitationFormatter.cpp

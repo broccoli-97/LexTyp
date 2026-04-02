@@ -5,6 +5,7 @@
 #include <QQmlEngine>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QUrl>
 #include <QVector>
 #include <memory>
 
@@ -20,6 +21,10 @@ class DocumentModel : public QAbstractListModel
     QML_ELEMENT
     Q_PROPERTY(QString citationStyle READ citationStyle WRITE setCitationStyle NOTIFY citationStyleChanged)
     Q_PROPERTY(QString documentsPath READ documentsPath CONSTANT)
+    Q_PROPERTY(QUrl defaultProjectSaveUrl READ defaultProjectSaveUrl CONSTANT)
+    Q_PROPERTY(QUrl defaultProjectFolderUrl READ defaultProjectFolderUrl CONSTANT)
+    Q_PROPERTY(int activeParagraphIndex READ activeParagraphIndex WRITE setActiveParagraphIndex NOTIFY activeParagraphIndexChanged)
+    Q_PROPERTY(int activeCursorPosition READ activeCursorPosition WRITE setActiveCursorPosition NOTIFY activeCursorPositionChanged)
 
 public:
     enum Roles {
@@ -28,7 +33,12 @@ public:
         NodeIdRole,
         LevelRole,
         PrefixRole,
-        SuffixRole
+        SuffixRole,
+        TypeColorRole,
+        TypeBgRole,
+        TypeHoverBgRole,
+        OutlineIndentRole,
+        OutlineTextRole
     };
 
     explicit DocumentModel(QObject *parent = nullptr);
@@ -52,7 +62,9 @@ public:
     Q_INVOKABLE void setNodeSuffix(int row, const QString &value);
 
     Q_INVOKABLE void insertInlineCitation(int row, int cursorPos, const QString &key);
+    Q_INVOKABLE void insertCitation(const QString &key);
     Q_INVOKABLE void setReferenceLibrary(ReferenceLibrary *library);
+    Q_INVOKABLE void setSerializationEnabled(bool enabled);
 
     Q_INVOKABLE void newProject();
     Q_INVOKABLE void loadTypst(const QUrl &fileUrl);
@@ -64,18 +76,35 @@ public:
 
     QString citationStyle() const;
     QString documentsPath() const { return QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation); }
+    QUrl defaultProjectSaveUrl() const {
+        return QUrl::fromLocalFile(documentsPath() + QStringLiteral("/document.lextyp"));
+    }
+    QUrl defaultProjectFolderUrl() const {
+        return QUrl::fromLocalFile(documentsPath());
+    }
     Q_INVOKABLE void setCitationStyle(const QString &styleName);
     Q_INVOKABLE QStringList availableStyles() const;
+
+    int activeParagraphIndex() const { return m_activeParagraphIndex; }
+    void setActiveParagraphIndex(int idx);
+    int activeCursorPosition() const { return m_activeCursorPosition; }
+    void setActiveCursorPosition(int pos);
 
 signals:
     void typstSourceChanged(const QString &source);
     void citationStyleChanged();
     void requestSaveAs();
+    void activeParagraphIndexChanged();
+    void activeCursorPositionChanged();
 
 private:
     void scheduleSerialization();
     void parseTypstSource(const QString &source);
     std::shared_ptr<DocumentNode> createNode(NodeType type) const;
+
+    static QString nodeTypeColor(NodeType type);
+    static QString nodeTypeBg(NodeType type);
+    static QString nodeTypeHoverBg(NodeType type);
 
     QVector<std::shared_ptr<DocumentNode>> m_nodes;
     QTimer m_compileTimer;
@@ -85,6 +114,9 @@ private:
     CitationStyleRegistry *m_registry;
     QString m_citationStyle = QStringLiteral("oscola");
     std::shared_ptr<CitationFormatter> m_formatter;
+    int m_activeParagraphIndex = -1;
+    int m_activeCursorPosition = -1;
+    bool m_serializationEnabled = true;
 };
 
 #endif // DOCUMENTMODEL_H

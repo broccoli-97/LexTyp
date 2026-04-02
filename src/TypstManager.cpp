@@ -15,6 +15,32 @@ QString TypstManager::lastError() const { return m_lastError; }
 QString TypstManager::lastPdfPath() const { return m_lastPdfPath; }
 qint64 TypstManager::lastDuration() const { return m_lastDuration; }
 
+QString TypstManager::statusText() const {
+    if (m_compiling)
+        return QStringLiteral("Compiling\u2026");
+    if (!m_lastError.isEmpty())
+        return QStringLiteral("Error");
+    if (!m_lastPdfPath.isEmpty())
+        return QStringLiteral("Compiled in %1ms").arg(m_lastDuration);
+    return QStringLiteral("Ready");
+}
+
+QString TypstManager::compilationDetail() const {
+    QString msg;
+    if (m_compiling) {
+        msg = QStringLiteral("Status: Compiling...\n");
+    } else if (!m_lastError.isEmpty()) {
+        msg = QStringLiteral("Status: Error\n");
+    } else {
+        msg = QStringLiteral("Status: Success\n");
+    }
+    if (m_lastDuration > 0)
+        msg += QStringLiteral("Duration: %1s\n").arg(m_lastDuration / 1000.0, 0, 'f', 2);
+    if (!m_lastError.isEmpty())
+        msg += QStringLiteral("\nError Message:\n") + m_lastError;
+    return msg;
+}
+
 QString TypstManager::resolveTypstPath() const
 {
     // Check next to the application binary first
@@ -47,6 +73,8 @@ void TypstManager::compile(const QString &typContent)
     if (typstBin.isEmpty()) {
         m_lastError = QStringLiteral("Typst binary not found");
         emit lastErrorChanged();
+        emit statusTextChanged();
+        emit compilationDetailChanged();
         emit compilationFailed(m_lastError);
         return;
     }
@@ -70,6 +98,7 @@ void TypstManager::compile(const QString &typContent)
 
     m_compiling = true;
     emit compilingChanged();
+    emit statusTextChanged();
 
     m_timer.start();
 
@@ -100,6 +129,9 @@ void TypstManager::compile(const QString &typContent)
             emit compilationFailed(m_lastError);
         }
 
+        emit statusTextChanged();
+        emit compilationDetailChanged();
+
         process->deleteLater();
     });
 
@@ -115,6 +147,8 @@ void TypstManager::compile(const QString &typContent)
         m_lastError = QStringLiteral("Process error: ") + process->errorString();
         emit lastErrorChanged();
         emit compilationFailed(m_lastError);
+        emit statusTextChanged();
+        emit compilationDetailChanged();
 
         process->deleteLater();
     });

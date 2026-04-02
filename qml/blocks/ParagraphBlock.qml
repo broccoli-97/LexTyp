@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import LexTyp
 
 Item {
     id: paragraphRoot
@@ -46,17 +47,16 @@ Item {
 
         onActiveFocusChanged: {
             if (activeFocus) {
-                root.activeParagraphIndex = blockIndex
-                root.activeCursorPosition = cursorPosition
+                documentModel.activeParagraphIndex = blockIndex
+                documentModel.activeCursorPosition = cursorPosition
             }
         }
 
         onCursorPositionChanged: {
             if (activeFocus) {
-                var cit = paragraphRoot.citationAt(cursorPosition)
-                if (cit !== null && paragraphRoot.snappingGuard < 2) {
+                var cit = CitationRangeHelper.citationAt(paragraphRoot.citationRanges, cursorPosition)
+                if (Object.keys(cit).length > 0 && paragraphRoot.snappingGuard < 2) {
                     paragraphRoot.snappingGuard++
-                    // Snap to nearest boundary: start or snapEnd (past trailing space)
                     var distToStart = cursorPosition - cit.start
                     var distToEnd = cit.snapEnd - cursorPosition
                     if (distToStart <= distToEnd) {
@@ -67,7 +67,7 @@ Item {
                     snapGuardReset.restart()
                     return
                 }
-                root.activeCursorPosition = cursorPosition
+                documentModel.activeCursorPosition = cursorPosition
             }
         }
 
@@ -77,66 +77,27 @@ Item {
         Keys.onPressed: function(event) {
             var pos = paragraphArea.cursorPosition
 
-            // Block character input that would modify a citation
+            // Check character input blocking
             if (event.text.length > 0) {
-                // Inside a citation — block all input
-                var citInside = paragraphRoot.citationAt(pos)
-                if (citInside !== null) {
-                    event.accepted = true
-                    return
-                }
-                // At citation end — word chars would extend the @key
-                var citAtEnd = paragraphRoot.citationEndingAt(pos)
-                if (citAtEnd !== null && /[\w\-]/.test(event.text)) {
+                var charResult = CitationRangeHelper.handleKeyAction(
+                    paragraphRoot.citationRanges, pos, -1, event.text)
+                if (charResult.action === "block") {
                     event.accepted = true
                     return
                 }
             }
 
-            if (event.key === Qt.Key_Right) {
-                var citAtStart = paragraphRoot.citationStartingAt(pos)
-                if (citAtStart !== null) {
-                    paragraphArea.cursorPosition = citAtStart.snapEnd
-                    event.accepted = true
-                    return
-                }
-            }
-
-            if (event.key === Qt.Key_Left) {
-                var citAtEnd = paragraphRoot.citationEndingAt(pos)
-                if (citAtEnd !== null) {
-                    paragraphArea.cursorPosition = citAtEnd.start
-                    event.accepted = true
-                    return
-                }
-                // Also handle cursor at snapEnd (past trailing space)
-                var citAtSnap = paragraphRoot.citationSnapEndAt(pos)
-                if (citAtSnap !== null) {
-                    paragraphArea.cursorPosition = citAtSnap.start
-                    event.accepted = true
-                    return
-                }
-            }
-
-            if (event.key === Qt.Key_Backspace) {
-                var citBack = paragraphRoot.citationEndingAt(pos)
-                    || paragraphRoot.citationSnapEndAt(pos)
-                    || paragraphRoot.citationAt(pos)
-                if (citBack !== null) {
-                    paragraphArea.remove(citBack.start, citBack.end)
-                    event.accepted = true
-                    return
-                }
-            }
-
-            if (event.key === Qt.Key_Delete) {
-                var citDel = paragraphRoot.citationStartingAt(pos)
-                    || paragraphRoot.citationAt(pos)
-                if (citDel !== null) {
-                    paragraphArea.remove(citDel.start, citDel.end)
-                    event.accepted = true
-                    return
-                }
+            // Check specific key actions
+            var result = CitationRangeHelper.handleKeyAction(
+                paragraphRoot.citationRanges, pos, event.key, "")
+            if (result.action === "block") {
+                event.accepted = true
+            } else if (result.action === "move") {
+                paragraphArea.cursorPosition = result.cursorPos
+                event.accepted = true
+            } else if (result.action === "delete") {
+                paragraphArea.remove(result.deleteStart, result.deleteEnd)
+                event.accepted = true
             }
         }
 
@@ -168,9 +129,25 @@ Item {
     // Deferred overlay computation — fires after layout pass
     Timer {
         id: overlayTimer
-        interval: 0
+        interval: 50
         onTriggered: {
-            paragraphRoot.citationRanges = paragraphRoot.parseCiteKeys()
+            var textRanges = CitationRangeHelper.parseCiteKeys(paragraphArea.text)
+            var result = []
+            for (var i = 0; i < textRanges.length; i++) {
+                var r = textRanges[i]
+                var startPos = r.start
+                var endPos = r.end
+                if (endPos > paragraphArea.length) continue
+                var r1 = paragraphArea.positionToRectangle(startPos)
+                var r2 = paragraphArea.positionToRectangle(endPos)
+                // Only overlay if the match is on a single line
+                if (Math.abs(r1.y - r2.y) < 2) {
+                    var w = Math.max(r2.x - r1.x, 30)
+                    r.rect = Qt.rect(r1.x, r1.y, w, r1.height)
+                    result.push(r)
+                }
+            }
+            paragraphRoot.citationRanges = result
         }
     }
 
@@ -222,72 +199,6 @@ Item {
                 }
             }
         }
-    }
-
-    // Parse @citekey positions from the TextArea's actual text
-    function parseCiteKeys() {
-        var results = []
-        var content = paragraphArea.text
-        var re = /@([\w][\w-]*)/g
-        var match
-        while ((match = re.exec(content)) !== null) {
-            var startPos = match.index
-            var endPos = match.index + match[0].length
-            if (endPos > paragraphArea.length) continue
-            // snapEnd extends past trailing space so cursor lands beyond
-            // the delimiter — typing there won't extend the @key regex
-            var snapEnd = endPos
-            if (snapEnd < content.length && content[snapEnd] === ' ')
-                snapEnd++
-            var r1 = paragraphArea.positionToRectangle(startPos)
-            var r2 = paragraphArea.positionToRectangle(endPos)
-            // Only overlay if the match is on a single line
-            if (Math.abs(r1.y - r2.y) < 2) {
-                var w = Math.max(r2.x - r1.x, 30)
-                results.push({
-                    rect: Qt.rect(r1.x, r1.y, w, r1.height),
-                    display: "@" + match[1],
-                    start: startPos,
-                    end: endPos,
-                    snapEnd: snapEnd,
-                    key: match[1]
-                })
-            }
-        }
-        return results
-    }
-
-    // Lookup helpers for citationRanges
-    // citationAt uses snapEnd so cursor at @key boundary or trailing
-    // space is treated as inside — snapping will push cursor past it
-    function citationAt(pos) {
-        for (var i = 0; i < citationRanges.length; i++) {
-            var c = citationRanges[i]
-            if (pos > c.start && pos < c.snapEnd) return c
-        }
-        return null
-    }
-
-    function citationStartingAt(pos) {
-        for (var i = 0; i < citationRanges.length; i++) {
-            if (citationRanges[i].start === pos) return citationRanges[i]
-        }
-        return null
-    }
-
-    function citationEndingAt(pos) {
-        for (var i = 0; i < citationRanges.length; i++) {
-            if (citationRanges[i].end === pos) return citationRanges[i]
-        }
-        return null
-    }
-
-    function citationSnapEndAt(pos) {
-        for (var i = 0; i < citationRanges.length; i++) {
-            if (citationRanges[i].snapEnd === pos && citationRanges[i].snapEnd !== citationRanges[i].end)
-                return citationRanges[i]
-        }
-        return null
     }
 
     // Forward activeFocus so BlockDelegate.isFocused works

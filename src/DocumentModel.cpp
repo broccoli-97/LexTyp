@@ -70,6 +70,35 @@ QVariant DocumentModel::data(const QModelIndex& index, int role) const {
             if (auto* cite = node->as<CitationNode>())
                 return cite->suffix();
             return QString();
+        case TypeColorRole:
+            return nodeTypeColor(node->type());
+        case TypeBgRole:
+            return nodeTypeBg(node->type());
+        case TypeHoverBgRole:
+            return nodeTypeHoverBg(node->type());
+        case OutlineIndentRole: {
+            if (node->type() == NodeType::Title) {
+                auto *title = node->as<TitleNode>();
+                return 8 + (title ? (title->level() - 1) * 12 : 0);
+            }
+            return 20;  // 8 + 12 for non-title nodes
+        }
+        case OutlineTextRole: {
+            QString text = node->content();
+            switch (node->type()) {
+                case NodeType::Title:
+                    return text.isEmpty() ? QStringLiteral("Untitled") : text;
+                case NodeType::Citation:
+                    return text.isEmpty() ? QStringLiteral("Citation: empty")
+                                          : QStringLiteral("Citation: ") + text;
+                default:
+                    if (text.isEmpty())
+                        return QStringLiteral("Empty paragraph");
+                    return text.length() > 40
+                               ? text.left(40) + QStringLiteral("\u2026")
+                               : text;
+            }
+        }
     }
 
     return {};
@@ -116,8 +145,12 @@ bool DocumentModel::setData(const QModelIndex& index, const QVariant& value, int
 }
 
 QHash<int, QByteArray> DocumentModel::roleNames() const {
-    return {{NodeTypeRole, "nodeType"}, {ContentRole, "content"}, {NodeIdRole, "nodeId"},
-            {LevelRole, "level"},       {PrefixRole, "prefix"},   {SuffixRole, "suffix"}};
+    return {{NodeTypeRole, "nodeType"},   {ContentRole, "content"},
+            {NodeIdRole, "nodeId"},     {LevelRole, "level"},
+            {PrefixRole, "prefix"},     {SuffixRole, "suffix"},
+            {TypeColorRole, "typeColor"}, {TypeBgRole, "typeBg"},
+            {TypeHoverBgRole, "typeHoverBg"},
+            {OutlineIndentRole, "outlineIndent"}, {OutlineTextRole, "outlineText"}};
 }
 
 Qt::ItemFlags DocumentModel::flags(const QModelIndex& index) const {
@@ -482,6 +515,16 @@ bool DocumentModel::exportTypst(const QUrl& fileUrl) {
     return true;
 }
 
+void DocumentModel::insertCitation(const QString &key) {
+    if (m_activeParagraphIndex >= 0 && m_activeParagraphIndex < m_nodes.size() &&
+        m_nodes[m_activeParagraphIndex]->type() == NodeType::Paragraph) {
+        insertInlineCitation(m_activeParagraphIndex, m_activeCursorPosition, key);
+    } else {
+        insertNode(nodeCount(), static_cast<int>(NodeType::Citation));
+        setNodeContent(nodeCount() - 1, key);
+    }
+}
+
 void DocumentModel::insertInlineCitation(int row, int cursorPos, const QString& key) {
     if (row < 0 || row >= m_nodes.size())
         return;
@@ -507,7 +550,15 @@ void DocumentModel::insertInlineCitation(int row, int cursorPos, const QString& 
 }
 
 void DocumentModel::scheduleSerialization() {
+    if (!m_serializationEnabled)
+        return;
     m_compileTimer.start();
+}
+
+void DocumentModel::setSerializationEnabled(bool enabled) {
+    m_serializationEnabled = enabled;
+    if (enabled)
+        scheduleSerialization();
 }
 
 QString DocumentModel::citationStyle() const {
@@ -527,6 +578,50 @@ void DocumentModel::setCitationStyle(const QString& styleName) {
 
 QStringList DocumentModel::availableStyles() const {
     return m_registry->styleNames();
+}
+
+void DocumentModel::setActiveParagraphIndex(int idx) {
+    if (m_activeParagraphIndex == idx)
+        return;
+    m_activeParagraphIndex = idx;
+    emit activeParagraphIndexChanged();
+}
+
+void DocumentModel::setActiveCursorPosition(int pos) {
+    if (m_activeCursorPosition == pos)
+        return;
+    m_activeCursorPosition = pos;
+    emit activeCursorPositionChanged();
+}
+
+QString DocumentModel::nodeTypeColor(NodeType type) {
+    switch (type) {
+        case NodeType::Title:     return QStringLiteral("#1565C0");
+        case NodeType::Paragraph: return QStringLiteral("#546E7A");
+        case NodeType::Citation:  return QStringLiteral("#E65100");
+        case NodeType::Section:   return QStringLiteral("#2E7D32");
+    }
+    return QStringLiteral("#546E7A");
+}
+
+QString DocumentModel::nodeTypeBg(NodeType type) {
+    switch (type) {
+        case NodeType::Title:     return QStringLiteral("#F0F4FA");
+        case NodeType::Paragraph: return QStringLiteral("#FAFAFA");
+        case NodeType::Citation:  return QStringLiteral("#FFF8F0");
+        case NodeType::Section:   return QStringLiteral("#F2F7F2");
+    }
+    return QStringLiteral("#FAFAFA");
+}
+
+QString DocumentModel::nodeTypeHoverBg(NodeType type) {
+    switch (type) {
+        case NodeType::Title:     return QStringLiteral("#E3ECF7");
+        case NodeType::Paragraph: return QStringLiteral("#F0F0F0");
+        case NodeType::Citation:  return QStringLiteral("#FFEFD6");
+        case NodeType::Section:   return QStringLiteral("#E5EFE5");
+    }
+    return QStringLiteral("#F0F0F0");
 }
 
 std::shared_ptr<DocumentNode> DocumentModel::createNode(NodeType type) const {
