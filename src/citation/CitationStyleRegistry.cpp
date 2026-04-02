@@ -96,3 +96,10 @@ std::shared_ptr<CitationFormatter> CitationStyleRegistry::defaultFormatter() con
 {
     return m_default;
 }
+
+QStringList CitationStyleRegistry::styleNames() const
+{
+    QStringList names = m_formatters.keys();
+    names.sort();
+    return names;
+}

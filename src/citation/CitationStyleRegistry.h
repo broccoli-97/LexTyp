@@ -3,6 +3,7 @@
 
 #include <QHash>
 #include <QString>
+#include <QStringList>
 #include <memory>
 
 class CitationFormatter;
@@ -22,6 +23,9 @@ public:
 
     // The default formatter (OSCOLA)
     std::shared_ptr<CitationFormatter> defaultFormatter() const;
+
+    // Return canonical style names (no aliases)
+    QStringList styleNames() const;
 
 private:
     CitationStyleRegistry();

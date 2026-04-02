@@ -517,11 +517,11 @@ Item {
             }
         }
 
-        // Active citation style label
+        // Citation style selector
         Rectangle {
             visible: citationPanel.selectedEntry === null
             Layout.fillWidth: true
-            Layout.preferredHeight: 28
+            Layout.preferredHeight: 32
             Layout.leftMargin: 8
             Layout.rightMargin: 8
             Layout.bottomMargin: 8
@@ -532,6 +532,7 @@ Item {
                 anchors.fill: parent
                 anchors.leftMargin: 8
                 anchors.rightMargin: 8
+                spacing: 6
 
                 Label {
                     text: "Style:"
@@ -540,12 +541,78 @@ Item {
                     color: "#616161"
                 }
 
-                Label {
-                    text: citationPanel.documentModel ? citationPanel.documentModel.citationStyle.toUpperCase() : "OSCOLA"
-                    font.pixelSize: 11
-                    font.bold: true
-                    color: citationPanel.accentColor
+                ComboBox {
+                    id: styleCombo
                     Layout.fillWidth: true
+                    Layout.preferredHeight: 26
+                    font.pixelSize: 11
+                    model: citationPanel.documentModel ? citationPanel.documentModel.availableStyles() : []
+                    currentIndex: {
+                        if (!citationPanel.documentModel) return 0
+                        var styles = citationPanel.documentModel.availableStyles()
+                        var current = citationPanel.documentModel.citationStyle
+                        for (var i = 0; i < styles.length; i++) {
+                            if (styles[i] === current) return i
+                        }
+                        return 0
+                    }
+
+                    displayText: currentText.toUpperCase()
+
+                    delegate: ItemDelegate {
+                        required property string modelData
+                        required property int index
+                        width: styleCombo.width
+                        height: 28
+                        contentItem: Text {
+                            text: modelData.toUpperCase()
+                            font.pixelSize: 11
+                            font.bold: styleCombo.currentIndex === index
+                            color: styleCombo.currentIndex === index ? citationPanel.accentColor : "#424242"
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        highlighted: styleCombo.highlightedIndex === index
+                        background: Rectangle {
+                            color: highlighted ? citationPanel.accentLight : "transparent"
+                        }
+                    }
+
+                    background: Rectangle {
+                        radius: 4
+                        color: styleCombo.hovered ? "#D6E4FF" : "transparent"
+                        border.color: styleCombo.pressed ? citationPanel.accentColor : "transparent"
+                        border.width: 1
+                    }
+
+                    contentItem: Text {
+                        text: styleCombo.displayText
+                        font.pixelSize: 11
+                        font.bold: true
+                        color: citationPanel.accentColor
+                        verticalAlignment: Text.AlignVCenter
+                        leftPadding: 4
+                    }
+
+                    onActivated: function(index) {
+                        if (citationPanel.documentModel) {
+                            var styles = citationPanel.documentModel.availableStyles()
+                            citationPanel.documentModel.setCitationStyle(styles[index])
+                        }
+                    }
+
+                    Connections {
+                        target: citationPanel.documentModel
+                        function onCitationStyleChanged() {
+                            var styles = citationPanel.documentModel.availableStyles()
+                            var current = citationPanel.documentModel.citationStyle
+                            for (var i = 0; i < styles.length; i++) {
+                                if (styles[i] === current) {
+                                    styleCombo.currentIndex = i
+                                    return
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

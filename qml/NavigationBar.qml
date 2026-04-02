@@ -21,11 +21,15 @@ Rectangle {
 
     // Signals for actions
     signal toggleMenu()
+    signal newProjectClicked()
     signal openClicked()
+    signal importTypstClicked()
     signal saveClicked()
+    signal exportTypstClicked()
     signal settingsClicked()
     signal outlineClicked()
     signal referencesClicked()
+    signal loadBibClicked()
 
     property int currentIndex: 0
 
@@ -79,22 +83,62 @@ Rectangle {
 
             Item { Layout.preferredHeight: 8 } // Spacer
 
-            // Open project / file
+            // New project
+            NavButton {
+                iconText: "\u2795" // + icon
+                label: "New"
+                showLabel: navBar.expanded
+                toolTip: "New Project"
+                onClicked: navBar.newProjectClicked()
+            }
+
+            // Open project
             NavButton {
                 iconText: "\uD83D\uDCC2" // Folder icon
                 label: "Open"
                 showLabel: navBar.expanded
-                toolTip: "Open Project (.zip) or File (.typ)"
+                toolTip: "Open Project (.lextyp)"
                 onClicked: navBar.openClicked()
             }
+
+            // Import .typ
+            NavButton {
+                iconText: "\uD83D\uDCE5" // Inbox tray icon
+                label: "Import"
+                showLabel: navBar.expanded
+                toolTip: "Import Typst File (.typ)"
+                onClicked: navBar.importTypstClicked()
+            }
+
+            Item { Layout.preferredHeight: 8 } // Spacer
 
             // Save project
             NavButton {
                 iconText: "\uD83D\uDCBE" // Floppy disk icon
                 label: "Save"
                 showLabel: navBar.expanded
-                toolTip: "Save Project (.zip)"
+                toolTip: "Save Project (.lextyp)"
                 onClicked: navBar.saveClicked()
+            }
+
+            // Export .typ
+            NavButton {
+                iconText: "\uD83D\uDCE4" // Outbox tray icon
+                label: "Export"
+                showLabel: navBar.expanded
+                toolTip: "Export as Typst File (.typ)"
+                onClicked: navBar.exportTypstClicked()
+            }
+
+            Item { Layout.preferredHeight: 8 } // Spacer
+
+            // Load bibliography
+            NavButton {
+                iconText: "\uD83D\uDCDA" // Books icon
+                label: "Bibliography"
+                showLabel: navBar.expanded
+                toolTip: "Load Bibliography (.bib)"
+                onClicked: navBar.loadBibClicked()
             }
         }
 

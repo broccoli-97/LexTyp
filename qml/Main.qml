@@ -25,7 +25,7 @@ ApplicationWindow {
     property bool rawEditMode: false
     property string capturedSource: ""
     readonly property string documentsPath: documentModel.documentsPath
-    readonly property url defaultProjectSaveFile: Qt.resolvedUrl("file://" + documentsPath + "/document.zip")
+    readonly property url defaultProjectSaveFile: Qt.resolvedUrl("file://" + documentsPath + "/document.lextyp")
 
     onRawEditModeChanged: {
         if (rawEditMode)
@@ -43,20 +43,23 @@ ApplicationWindow {
 
     // ── File dialogs ──────────────────────────────────────────────────────────
 
-    // Opens a .zip project (contains .typ + .bib) or a plain .typ file
+    // Open .lextyp project
     FileDialog {
         id: openProjectDialog
-        title: "Open Project or Typst File"
-        nameFilters: ["LexTyp project (*.zip)", "Typst file (*.typ)", "All files (*)"]
-        onAccepted: {
-            var path = selectedFile.toString()
-            if (path.toLowerCase().endsWith(".zip"))
-                documentModel.loadProject(selectedFile)
-            else
-                documentModel.loadTypst(selectedFile)
-        }
+        title: "Open Project"
+        nameFilters: ["LexTyp project (*.lextyp)", "All files (*)"]
+        onAccepted: documentModel.loadProject(selectedFile)
     }
 
+    // Import .typ file into editor
+    FileDialog {
+        id: importTypstDialog
+        title: "Import Typst File"
+        nameFilters: ["Typst file (*.typ)", "All files (*)"]
+        onAccepted: documentModel.loadTypst(selectedFile)
+    }
+
+    // Load bibliography
     FileDialog {
         id: openBibDialog
         title: "Open Bibliography"
@@ -64,18 +67,28 @@ ApplicationWindow {
         onAccepted: referenceLibrary.loadBibFile(selectedFile.toString())
     }
 
+    // Save .lextyp project
     FileDialog {
         id: saveProjectDialog
         title: "Save Project"
         fileMode: FileDialog.SaveFile
         acceptLabel: "Save"
-        nameFilters: ["LexTyp project (*.zip)"]
-        defaultSuffix: "zip"
+        nameFilters: ["LexTyp project (*.lextyp)"]
+        defaultSuffix: "lextyp"
         currentFolder: root.defaultProjectSaveFile.toString().replace(/\/[^/]*$/, "/")
         currentFile: root.defaultProjectSaveFile
-        onAccepted: {
-            documentModel.saveProject(selectedFile)
-        }
+        onAccepted: documentModel.saveProject(selectedFile)
+    }
+
+    // Export .typ file
+    FileDialog {
+        id: exportTypstDialog
+        title: "Export as Typst"
+        fileMode: FileDialog.SaveFile
+        acceptLabel: "Export"
+        nameFilters: ["Typst file (*.typ)"]
+        defaultSuffix: "typ"
+        onAccepted: documentModel.exportTypst(selectedFile)
     }
 
     // ── Compile info popup ────────────────────────────────────────────────────
@@ -227,14 +240,25 @@ ApplicationWindow {
                         sidePanel.currentIndex = 1
                         sidePanel.visible = true
                     }
+                    onNewProjectClicked: {
+                        documentModel.newProject()
+                    }
                     onOpenClicked: {
                         openProjectDialog.open()
+                    }
+                    onImportTypstClicked: {
+                        importTypstDialog.open()
                     }
                     onSaveClicked: {
                         documentModel.saveProject()
                     }
+                    onExportTypstClicked: {
+                        exportTypstDialog.open()
+                    }
+                    onLoadBibClicked: {
+                        openBibDialog.open()
+                    }
                     onSettingsClicked: {
-                        // Placeholder for future settings dialog
                         console.log("Settings clicked")
                     }
                 }
@@ -370,72 +394,6 @@ ApplicationWindow {
                                 }
 
                                 Item { width: 4 }
-
-                                // ── Open project / .typ ───────────────────────────
-                                AbstractButton {
-                                    id: openBtn
-                                    Layout.preferredHeight: 28
-                                    padding: 0
-
-                                    contentItem: Row {
-                                        spacing: 5
-                                        leftPadding: 10
-                                        rightPadding: 10
-                                        Label {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            text: "\uD83D\uDCC2"   // 📂
-                                            font.pixelSize: 13
-                                        }
-                                        Label {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            text: "Open"
-                                            font.pixelSize: 12
-                                            color: openBtn.hovered ? "#333333" : "#757575"
-                                        }
-                                    }
-                                    background: Rectangle {
-                                        radius: 14
-                                        color: openBtn.hovered ? "#F0F0F0" : "transparent"
-                                        border.color: openBtn.hovered ? "#D0D0D0" : "transparent"
-                                    }
-                                    onClicked: openProjectDialog.open()
-                                    ToolTip.visible: hovered
-                                    ToolTip.delay: 600
-                                    ToolTip.text: "Open a project (.zip) or Typst file (.typ)"
-                                }
-
-                                // ── Load bibliography ─────────────────────────────
-                                AbstractButton {
-                                    id: bibBtn
-                                    Layout.preferredHeight: 28
-                                    padding: 0
-
-                                    contentItem: Row {
-                                        spacing: 5
-                                        leftPadding: 10
-                                        rightPadding: 10
-                                        Label {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            text: "\uD83D\uDCDA"   // 📚
-                                            font.pixelSize: 13
-                                        }
-                                        Label {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            text: ".bib"
-                                            font.pixelSize: 12
-                                            color: bibBtn.hovered ? "#333333" : "#757575"
-                                        }
-                                    }
-                                    background: Rectangle {
-                                        radius: 14
-                                        color: bibBtn.hovered ? "#F0F0F0" : "transparent"
-                                        border.color: bibBtn.hovered ? "#D0D0D0" : "transparent"
-                                    }
-                                    onClicked: openBibDialog.open()
-                                    ToolTip.visible: hovered
-                                    ToolTip.delay: 600
-                                    ToolTip.text: "Load a BibTeX bibliography (.bib)"
-                                }
                             }
                         }
 

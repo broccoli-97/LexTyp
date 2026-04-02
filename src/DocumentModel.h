@@ -54,15 +54,18 @@ public:
     Q_INVOKABLE void insertInlineCitation(int row, int cursorPos, const QString &key);
     Q_INVOKABLE void setReferenceLibrary(ReferenceLibrary *library);
 
+    Q_INVOKABLE void newProject();
     Q_INVOKABLE void loadTypst(const QUrl &fileUrl);
     Q_INVOKABLE void loadTypstFromString(const QString &source);
     Q_INVOKABLE void loadProject(const QUrl &fileUrl);
     Q_INVOKABLE void loadBibliography(const QUrl &fileUrl);
     Q_INVOKABLE bool saveProject(const QUrl &fileUrl = QUrl());
+    Q_INVOKABLE bool exportTypst(const QUrl &fileUrl);
 
     QString citationStyle() const;
     QString documentsPath() const { return QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation); }
     Q_INVOKABLE void setCitationStyle(const QString &styleName);
+    Q_INVOKABLE QStringList availableStyles() const;
 
 signals:
     void typstSourceChanged(const QString &source);

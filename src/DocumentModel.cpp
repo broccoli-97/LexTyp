@@ -15,7 +15,9 @@
 #include <QUrl>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QFileInfo>
+#include <QDateTime>
 
 DocumentModel::DocumentModel(QObject* parent)
     : QAbstractListModel(parent),
@@ -275,6 +277,20 @@ void DocumentModel::parseTypstSource(const QString& source) {
     scheduleSerialization();
 }
 
+void DocumentModel::newProject() {
+    beginResetModel();
+    m_nodes.clear();
+    m_nodes.append(std::make_shared<TitleNode>(QStringLiteral("Untitled"), 1));
+    m_nodes.append(std::make_shared<ParagraphNode>());
+    endResetModel();
+
+    m_currentProjectPath.clear();
+    m_citationStyle = QStringLiteral("oscola");
+    m_formatter = m_registry->defaultFormatter();
+    emit citationStyleChanged();
+    scheduleSerialization();
+}
+
 void DocumentModel::loadTypst(const QUrl& fileUrl) {
     const QString path = fileUrl.toLocalFile();
     if (path.isEmpty())
@@ -305,34 +321,67 @@ void DocumentModel::loadProject(const QUrl& fileUrl) {
         return;
 
     QDir dir(tempDir.path());
-    const QStringList typFiles = dir.entryList({QStringLiteral("*.typ")}, QDir::Files);
-    const QStringList bibFiles = dir.entryList({QStringLiteral("*.bib")}, QDir::Files);
-    const QStringList jsonFiles = dir.entryList({QStringLiteral("lextyp.json")}, QDir::Files);
 
-    if (!typFiles.isEmpty()) {
-        QFile f(dir.filePath(typFiles.first()));
-        if (f.open(QIODevice::ReadOnly | QIODevice::Text))
-            parseTypstSource(QTextStream(&f).readAll());
-    }
-
-    if (!bibFiles.isEmpty() && m_library)
-        m_library->loadBibFile(dir.filePath(bibFiles.first()));
-
-    if (!jsonFiles.isEmpty()) {
-        QFile f(dir.filePath(jsonFiles.first()));
-        if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            QByteArray data = f.readAll();
-            QJsonDocument doc = QJsonDocument::fromJson(data);
+    // Load document.json (AST source of truth) — preferred over .typ re-parsing
+    bool loadedFromJson = false;
+    if (dir.exists(QStringLiteral("document.json"))) {
+        QFile f(dir.filePath(QStringLiteral("document.json")));
+        if (f.open(QIODevice::ReadOnly)) {
+            QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
             if (doc.isObject()) {
-                QJsonObject obj = doc.object();
-                if (obj.contains("citation_style")) {
-                    setCitationStyle(obj["citation_style"].toString());
+                QJsonObject root = doc.object();
+
+                // Restore citation style
+                if (root.contains(QStringLiteral("citation_style")))
+                    setCitationStyle(root[QStringLiteral("citation_style")].toString());
+
+                // Restore AST nodes
+                QJsonArray nodesArr = root[QStringLiteral("nodes")].toArray();
+                if (!nodesArr.isEmpty()) {
+                    beginResetModel();
+                    m_nodes.clear();
+                    for (const QJsonValue &val : nodesArr) {
+                        auto node = DocumentNode::fromJson(val.toObject());
+                        if (node)
+                            m_nodes.append(node);
+                    }
+                    if (m_nodes.isEmpty()) {
+                        m_nodes.append(std::make_shared<TitleNode>(QStringLiteral("Untitled"), 1));
+                        m_nodes.append(std::make_shared<ParagraphNode>());
+                    }
+                    endResetModel();
+                    loadedFromJson = true;
                 }
             }
         }
     }
 
+    // Fallback: legacy format — load from .typ + lextyp.json metadata
+    if (!loadedFromJson) {
+        const QStringList typFiles = dir.entryList({QStringLiteral("*.typ")}, QDir::Files);
+        if (!typFiles.isEmpty()) {
+            QFile f(dir.filePath(typFiles.first()));
+            if (f.open(QIODevice::ReadOnly | QIODevice::Text))
+                parseTypstSource(QTextStream(&f).readAll());
+        }
+
+        if (dir.exists(QStringLiteral("lextyp.json"))) {
+            QFile f(dir.filePath(QStringLiteral("lextyp.json")));
+            if (f.open(QIODevice::ReadOnly)) {
+                QJsonObject obj = QJsonDocument::fromJson(f.readAll()).object();
+                if (obj.contains(QStringLiteral("citation_style")))
+                    setCitationStyle(obj[QStringLiteral("citation_style")].toString());
+            }
+        }
+    }
+
+    // Load bibliography
+    const QStringList bibFiles = dir.entryList({QStringLiteral("*.bib")}, QDir::Files);
+    if (!bibFiles.isEmpty() && m_library)
+        m_library->loadBibFile(dir.filePath(bibFiles.first()));
+
     m_currentProjectPath = zipPath;
+    scheduleSerialization();
 }
 
 void DocumentModel::loadBibliography(const QUrl& fileUrl) {
@@ -360,46 +409,76 @@ bool DocumentModel::saveProject(const QUrl& fileUrl) {
     if (!tempDir.isValid())
         return false;
 
-    // 1. Write the main .typ file
-    QFile typFile(tempDir.path() + QDir::separator() + "document.typ");
-    if (typFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream out(&typFile);
-        Q_ASSERT(m_formatter);
-        out << TypstSerializer::serialize(m_nodes, m_library, *m_formatter);
-        typFile.close();
+    // 1. manifest.json — format envelope
+    {
+        QJsonObject manifest;
+        manifest[QStringLiteral("format_version")] = 1;
+        manifest[QStringLiteral("app_version")] = QStringLiteral("0.1.0");
+        manifest[QStringLiteral("created")] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+        manifest[QStringLiteral("modified")] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+
+        QFile f(tempDir.filePath(QStringLiteral("manifest.json")));
+        if (f.open(QIODevice::WriteOnly))
+            f.write(QJsonDocument(manifest).toJson());
     }
 
-    // 2. Write the .bib bibliography if a library is loaded and has a file path
+    // 2. document.json — AST source of truth
+    {
+        QJsonObject docObj;
+        docObj[QStringLiteral("citation_style")] = m_citationStyle;
+
+        QJsonArray nodesArr;
+        for (const auto &node : m_nodes)
+            nodesArr.append(node->toJson());
+        docObj[QStringLiteral("nodes")] = nodesArr;
+
+        QFile f(tempDir.filePath(QStringLiteral("document.json")));
+        if (f.open(QIODevice::WriteOnly))
+            f.write(QJsonDocument(docObj).toJson());
+    }
+
+    // 3. references.bib — self-contained bibliography copy
     if (m_library && !m_library->filePath().isEmpty()) {
         QFile sourceBib(m_library->filePath());
-        if (sourceBib.exists()) {
-            QFileInfo bibInfo(m_library->filePath());
-            QString destBib = tempDir.path() + QDir::separator() + bibInfo.fileName();
-            QFile::copy(m_library->filePath(), destBib);
+        if (sourceBib.exists())
+            QFile::copy(m_library->filePath(),
+                        tempDir.filePath(QStringLiteral("references.bib")));
+    }
+
+    // 4. document.typ — serialized Typst output for portability
+    {
+        QFile f(tempDir.filePath(QStringLiteral("document.typ")));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&f);
+            Q_ASSERT(m_formatter);
+            out << TypstSerializer::serialize(m_nodes, m_library, *m_formatter);
         }
     }
 
-    // 3. Write metadata file
-    QJsonObject metaObj;
-    metaObj["citation_style"] = m_citationStyle;
-    QJsonDocument metaDoc(metaObj);
-    QFile metaFile(tempDir.path() + QDir::separator() + "lextyp.json");
-    if (metaFile.open(QIODevice::WriteOnly)) {
-        metaFile.write(metaDoc.toJson());
-        metaFile.close();
-    }
-
-    // 4. Zip the contents of tempDir into targetPath
+    // 5. Zip everything into the target .lextyp file
     QProcess proc;
-    QStringList args;
-    args << "-r" << "-j" << targetPath << ".";
     proc.setWorkingDirectory(tempDir.path());
-    proc.start("zip", args);
-    if (!proc.waitForFinished(10000) || proc.exitCode() != 0) {
+    proc.start(QStringLiteral("zip"),
+               {QStringLiteral("-r"), QStringLiteral("-j"), targetPath, QStringLiteral(".")});
+    if (!proc.waitForFinished(10000) || proc.exitCode() != 0)
         return false;
-    }
 
     m_currentProjectPath = targetPath;
+    return true;
+}
+
+bool DocumentModel::exportTypst(const QUrl& fileUrl) {
+    const QString path = fileUrl.toLocalFile();
+    if (path.isEmpty())
+        return false;
+
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Text))
+        return false;
+
+    QTextStream out(&f);
+    Q_ASSERT(m_formatter);
+    out << TypstSerializer::serialize(m_nodes, m_library, *m_formatter);
     return true;
 }
 
@@ -444,6 +523,10 @@ void DocumentModel::setCitationStyle(const QString& styleName) {
     m_formatter = m_registry->formatter(normalized);
     emit citationStyleChanged();
     scheduleSerialization();
+}
+
+QStringList DocumentModel::availableStyles() const {
+    return m_registry->styleNames();
 }
 
 std::shared_ptr<DocumentNode> DocumentModel::createNode(NodeType type) const {

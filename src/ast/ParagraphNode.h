@@ -8,6 +8,8 @@ class ParagraphNode : public DocumentNode
 public:
     explicit ParagraphNode(const QString &text = QString())
         : DocumentNode(NodeType::Paragraph), m_text(text) {}
+    ParagraphNode(const QString &text, const QUuid &id)
+        : DocumentNode(NodeType::Paragraph, id), m_text(text) {}
 
     QString content() const override { return m_text; }
     void setContent(const QString &text) override { m_text = text; }

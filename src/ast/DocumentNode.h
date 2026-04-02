@@ -3,6 +3,7 @@
 
 #include <QString>
 #include <QUuid>
+#include <QJsonObject>
 
 enum class NodeType {
     Title,
@@ -16,6 +17,8 @@ class DocumentNode
 public:
     explicit DocumentNode(NodeType type)
         : m_id(QUuid::createUuid()), m_type(type) {}
+    explicit DocumentNode(NodeType type, const QUuid &id)
+        : m_id(id), m_type(type) {}
     virtual ~DocumentNode() = default;
 
     QUuid id() const { return m_id; }
@@ -26,6 +29,16 @@ public:
 
     virtual QString content() const = 0;
     virtual void setContent(const QString &text) = 0;
+
+    virtual QJsonObject toJson() const {
+        QJsonObject obj;
+        obj[QStringLiteral("id")] = m_id.toString(QUuid::WithoutBraces);
+        obj[QStringLiteral("type")] = static_cast<int>(m_type);
+        obj[QStringLiteral("content")] = content();
+        return obj;
+    }
+
+    static std::shared_ptr<DocumentNode> fromJson(const QJsonObject &obj);
 
 private:
     QUuid m_id;
