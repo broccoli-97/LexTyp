@@ -43,15 +43,22 @@ QString TypstManager::compilationDetail() const {
 
 QString TypstManager::resolveTypstPath() const
 {
+    // Platform-specific executable suffix
+#ifdef Q_OS_WIN
+    const QString exe = QStringLiteral(".exe");
+#else
+    const QString exe;
+#endif
+
     // Check next to the application binary first
     QString appDirPath = QCoreApplication::applicationDirPath()
-                         + QStringLiteral("/resources/bin/typst");
+                         + QStringLiteral("/resources/bin/typst") + exe;
     if (QFile::exists(appDirPath))
         return appDirPath;
 
     // Check the source tree location (useful during development)
     QString srcPath = QCoreApplication::applicationDirPath()
-                      + QStringLiteral("/../../resources/bin/typst");
+                      + QStringLiteral("/../../resources/bin/typst") + exe;
     QString canonical = QDir(srcPath).canonicalPath();
     if (!canonical.isEmpty() && QFile::exists(canonical))
         return canonical;

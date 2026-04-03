@@ -35,7 +35,7 @@ if(ENABLE_WARNINGS)
     endif()
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Core Quick Widgets Pdf)
+find_package(Qt6 REQUIRED COMPONENTS Core Quick QuickControls2 Widgets Pdf)
 
 qt_add_executable(LexTyp
     src/main.cpp
@@ -90,6 +90,7 @@ target_include_directories(LexTyp PRIVATE
 target_link_libraries(LexTyp PRIVATE
     Qt6::Core
     Qt6::Quick
+    Qt6::QuickControls2
     Qt6::Widgets
     Qt6::Pdf
 )

@@ -1,11 +1,15 @@
 #include <QApplication>
 #include <QQmlApplicationEngine>
+#include <QQuickStyle>
 #include <QUrl>
 
 #include "PdfManager.h"
 
 int main(int argc, char *argv[])
 {
+    // Use Basic style to ensure custom control backgrounds work on all platforms
+    QQuickStyle::setStyle(QStringLiteral("Basic"));
+
     QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("LexTyp"));
     app.setApplicationVersion(QStringLiteral("0.1.0"));
