@@ -34,8 +34,7 @@ DocumentModel::DocumentModel(QObject* parent)
         emit typstSourceChanged(source);
     });
 
-    // Seed with default blocks
-    m_nodes.append(std::make_shared<TitleNode>(QStringLiteral("Untitled"), 1));
+    // Seed with a single empty paragraph
     m_nodes.append(std::make_shared<ParagraphNode>());
 }
 
@@ -76,29 +75,6 @@ QVariant DocumentModel::data(const QModelIndex& index, int role) const {
             return nodeTypeBg(node->type());
         case TypeHoverBgRole:
             return nodeTypeHoverBg(node->type());
-        case OutlineIndentRole: {
-            if (node->type() == NodeType::Title) {
-                auto *title = node->as<TitleNode>();
-                return 8 + (title ? (title->level() - 1) * 12 : 0);
-            }
-            return 20;  // 8 + 12 for non-title nodes
-        }
-        case OutlineTextRole: {
-            QString text = node->content();
-            switch (node->type()) {
-                case NodeType::Title:
-                    return text.isEmpty() ? QStringLiteral("Untitled") : text;
-                case NodeType::Citation:
-                    return text.isEmpty() ? QStringLiteral("Citation: empty")
-                                          : QStringLiteral("Citation: ") + text;
-                default:
-                    if (text.isEmpty())
-                        return QStringLiteral("Empty paragraph");
-                    return text.length() > 40
-                               ? text.left(40) + QStringLiteral("\u2026")
-                               : text;
-            }
-        }
     }
 
     return {};
@@ -149,8 +125,7 @@ QHash<int, QByteArray> DocumentModel::roleNames() const {
             {NodeIdRole, "nodeId"},     {LevelRole, "level"},
             {PrefixRole, "prefix"},     {SuffixRole, "suffix"},
             {TypeColorRole, "typeColor"}, {TypeBgRole, "typeBg"},
-            {TypeHoverBgRole, "typeHoverBg"},
-            {OutlineIndentRole, "outlineIndent"}, {OutlineTextRole, "outlineText"}};
+            {TypeHoverBgRole, "typeHoverBg"}};
 }
 
 Qt::ItemFlags DocumentModel::flags(const QModelIndex& index) const {
@@ -222,6 +197,7 @@ void DocumentModel::changeNodeType(int row, int newType) {
     m_nodes[row] = newNode;
     emit dataChanged(index(row), index(row));
     scheduleSerialization();
+    emit focusRequested(row);
 }
 
 int DocumentModel::nodeCount() const {
@@ -230,6 +206,35 @@ int DocumentModel::nodeCount() const {
 
 void DocumentModel::insertNodeBelow(int row, int nodeType) {
     insertNode(row + 1, nodeType);
+    emit focusRequested(row + 1);
+}
+
+void DocumentModel::splitNode(int row, int cursorPos) {
+    if (row < 0 || row >= m_nodes.size())
+        return;
+
+    auto& node = m_nodes[row];
+    QString text = node->content();
+    cursorPos = qBound(0, cursorPos, text.length());
+
+    QString before = text.left(cursorPos);
+    QString after = text.mid(cursorPos);
+
+    // Update current node with text before cursor
+    node->setContent(before);
+    emit dataChanged(index(row), index(row), {ContentRole});
+
+    // Insert new paragraph below with text after cursor
+    auto newNode = std::make_shared<ParagraphNode>();
+    newNode->setContent(after);
+
+    int newRow = row + 1;
+    beginInsertRows(QModelIndex(), newRow, newRow);
+    m_nodes.insert(newRow, newNode);
+    endInsertRows();
+
+    scheduleSerialization();
+    emit focusRequested(newRow);
 }
 
 void DocumentModel::setNodeContent(int row, const QString& value) {
@@ -302,7 +307,6 @@ void DocumentModel::parseTypstSource(const QString& source) {
     }
 
     if (m_nodes.isEmpty()) {
-        m_nodes.append(std::make_shared<TitleNode>(QStringLiteral("Untitled"), 1));
         m_nodes.append(std::make_shared<ParagraphNode>());
     }
 
@@ -313,7 +317,6 @@ void DocumentModel::parseTypstSource(const QString& source) {
 void DocumentModel::newProject() {
     beginResetModel();
     m_nodes.clear();
-    m_nodes.append(std::make_shared<TitleNode>(QStringLiteral("Untitled"), 1));
     m_nodes.append(std::make_shared<ParagraphNode>());
     endResetModel();
 
@@ -379,7 +382,6 @@ void DocumentModel::loadProject(const QUrl& fileUrl) {
                             m_nodes.append(node);
                     }
                     if (m_nodes.isEmpty()) {
-                        m_nodes.append(std::make_shared<TitleNode>(QStringLiteral("Untitled"), 1));
                         m_nodes.append(std::make_shared<ParagraphNode>());
                     }
                     endResetModel();

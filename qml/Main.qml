@@ -219,13 +219,8 @@ ApplicationWindow {
                         onReleased: (mouse) => mouse.accepted = false
                     }
 
-                    onOutlineClicked: {
-                        sidePanel.currentIndex = 0
-                        sidePanel.visible = true
-                    }
                     onReferencesClicked: {
-                        sidePanel.currentIndex = 1
-                        sidePanel.visible = true
+                        sidePanel.visible = !sidePanel.visible
                     }
                     onNewProjectClicked: {
                         documentModel.newProject()
@@ -268,227 +263,144 @@ ApplicationWindow {
 
                 // ── Center: editor panel ──────────────────────────────────────────
                 Rectangle {
+                    id: editorPanel
                     SplitView.preferredWidth: root.width * 0.42
                     SplitView.minimumWidth: 300
                     color: "white"
 
-                    ColumnLayout {
+                    // ── Content area: block editor OR raw text ────────────────
+                    Item {
                         anchors.fill: parent
-                        spacing: 0
 
-                        // ── Header bar ────────────────────────────────────────────
+                        // Block editor
+                        BlockListView {
+                            id: blockListView
+                            anchors.fill: parent
+                            anchors.leftMargin: 24
+                            anchors.rightMargin: 24
+                            anchors.topMargin: 16
+                            sourceModel: documentModel
+                            visible: !rawEditMode
+                        }
+
+                        // Raw Typst editor
                         Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 44
-                            color: "#FAFAFA"
+                            anchors.fill: parent
+                            visible: rawEditMode
+                            color: "#1E1E1E"
 
-                            Rectangle {
-                                anchors.bottom: parent.bottom
-                                width: parent.width
-                                height: 1
-                                color: root.borderColor
-                            }
-
-                            RowLayout {
+                            ScrollView {
                                 anchors.fill: parent
-                                anchors.leftMargin: 12
-                                anchors.rightMargin: 8
-                                spacing: 6
+                                clip: true
 
-                                Label {
-                                    text: "Document"
-                                    font.pixelSize: 14
-                                    font.weight: Font.DemiBold
-                                    color: "#333333"
+                                TextArea {
+                                    id: rawEditor
+                                    readOnly: true
+                                    wrapMode: TextArea.Wrap
+                                    font.family: "monospace"
+                                    font.pixelSize: 12
+                                    color: "#D4D4D4"
+                                    selectionColor: root.accentColor
+                                    selectedTextColor: "white"
+                                    leftPadding: 16
+                                    topPadding: 12
+                                    background: null
                                 }
-
-                                Item { Layout.fillWidth: true }
-
-                                // ── View toggle: Blocks / Text ────────────────────
-                                Row {
-                                    spacing: 0
-
-                                    AbstractButton {
-                                        id: blocksToggle
-                                        height: 28
-                                        implicitWidth: contentRow.implicitWidth + 16
-
-                                        contentItem: Row {
-                                            id: contentRow
-                                            spacing: 4
-                                            leftPadding: 8
-                                            rightPadding: 8
-                                            Label {
-                                                anchors.verticalCenter: parent.verticalCenter
-                                                text: "\u229E"   // ⊞
-                                                font.pixelSize: 12
-                                                color: !rawEditMode ? root.accentColor : "#757575"
-                                            }
-                                            Label {
-                                                anchors.verticalCenter: parent.verticalCenter
-                                                text: "Blocks"
-                                                font.pixelSize: 12
-                                                color: !rawEditMode ? root.accentColor : "#757575"
-                                            }
-                                        }
-                                        background: Rectangle {
-                                            radius: 4
-                                            color: !rawEditMode ? "#E8F0FE" : (blocksToggle.hovered ? "#F0F0F0" : "transparent")
-                                            border.color: !rawEditMode ? root.accentColor : root.borderColor
-                                            border.width: 1
-                                        }
-                                        onClicked: rawEditMode = false
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: "Block editor"
-                                    }
-
-                                    Item { width: 4 }
-
-                                    AbstractButton {
-                                        id: textToggle
-                                        height: 28
-                                        implicitWidth: textToggleRow.implicitWidth + 16
-
-                                        contentItem: Row {
-                                            id: textToggleRow
-                                            spacing: 4
-                                            leftPadding: 8
-                                            rightPadding: 8
-                                            Label {
-                                                anchors.verticalCenter: parent.verticalCenter
-                                                text: "{ }"
-                                                font.pixelSize: 11
-                                                font.family: "monospace"
-                                                color: rawEditMode ? root.accentColor : "#757575"
-                                            }
-                                            Label {
-                                                anchors.verticalCenter: parent.verticalCenter
-                                                text: "Typst"
-                                                font.pixelSize: 12
-                                                color: rawEditMode ? root.accentColor : "#757575"
-                                            }
-                                        }
-                                        background: Rectangle {
-                                            radius: 4
-                                            color: rawEditMode ? "#E8F0FE" : (textToggle.hovered ? "#F0F0F0" : "transparent")
-                                            border.color: rawEditMode ? root.accentColor : root.borderColor
-                                            border.width: 1
-                                        }
-                                        onClicked: rawEditMode = true
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: "View generated Typst source (read-only)"
-                                    }
-                                }
-
-                                Item { width: 4 }
                             }
                         }
 
-                        // ── Block toolbar (block mode only) ───────────────────────
+                        // ── Floating outline (Notion-style) ──────────────────
                         Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: visible ? 32 : 0
-                            visible: !rawEditMode
-                            color: "#F5F5F5"
+                            id: floatingOutline
+                            visible: !rawEditMode && hasOutlineItems
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.rightMargin: 8
+                            anchors.topMargin: 16
+                            width: 160
+                            height: Math.min(outlineCol.implicitHeight + 24, parent.height * 0.6)
+                            radius: 8
+                            color: "#F8F8F8"
+                            opacity: outlineHover.hovered ? 0.95 : 0.6
+                            border.color: "#E8E8E8"
+                            border.width: 1
+                            z: 50
 
-                            Rectangle {
-                                anchors.bottom: parent.bottom
-                                width: parent.width
-                                height: 1
-                                color: root.borderColor
-                            }
+                            property bool hasOutlineItems: false
 
-                            Row {
+                            Behavior on opacity { NumberAnimation { duration: 200 } }
+
+                            HoverHandler { id: outlineHover }
+
+                            Flickable {
                                 anchors.fill: parent
-                                anchors.leftMargin: 8
-                                anchors.rightMargin: 8
-                                spacing: 2
+                                anchors.margins: 12
+                                contentHeight: outlineCol.implicitHeight
+                                clip: true
+                                boundsBehavior: Flickable.StopAtBounds
 
-                                Repeater {
-                                    model: [
-                                        { label: "Title",     type: 0, icon: "T" },
-                                        { label: "Section",   type: 3, icon: "§" },
-                                        { label: "Paragraph", type: 1, icon: "¶" }
-                                    ]
+                                Column {
+                                    id: outlineCol
+                                    width: parent.width
+                                    spacing: 2
 
-                                    delegate: AbstractButton {
-                                        id: toolBtn
-                                        height: 24
-                                        anchors.verticalCenter: parent.verticalCenter
+                                    Label {
+                                        text: "Outline"
+                                        font.pixelSize: 10
+                                        font.bold: true
+                                        font.capitalization: Font.AllUppercase
+                                        color: "#9E9E9E"
+                                        bottomPadding: 4
+                                    }
 
-                                        contentItem: Row {
-                                            spacing: 4
-                                            leftPadding: 8
-                                            rightPadding: 8
-                                            Rectangle {
-                                                anchors.verticalCenter: parent.verticalCenter
-                                                width: 14; height: 14; radius: 3
-                                                color: toolBtn.hovered ? root.accentColor : "#E0E0E0"
-                                                Label {
-                                                    anchors.centerIn: parent
-                                                    text: modelData.icon
-                                                    font.pixelSize: 9
-                                                    font.bold: true
-                                                    color: toolBtn.hovered ? "white" : "#757575"
+                                    Repeater {
+                                        id: outlineRepeater
+                                        model: documentModel
+
+                                        delegate: Item {
+                                            id: outlineItem
+                                            required property int index
+                                            required property int nodeType
+                                            required property string content
+                                            required property int level
+                                            width: outlineCol.width
+                                            height: visible ? outlineLabel.implicitHeight + 4 : 0
+                                            visible: nodeType === 0
+
+                                            Component.onCompleted: updateHasOutline()
+                                            Component.onDestruction: updateHasOutline()
+                                            onVisibleChanged: updateHasOutline()
+
+                                            function updateHasOutline() {
+                                                var found = false
+                                                for (var i = 0; i < outlineRepeater.count; i++) {
+                                                    var item = outlineRepeater.itemAt(i)
+                                                    if (item && item.visible) { found = true; break }
+                                                }
+                                                floatingOutline.hasOutlineItems = found
+                                            }
+
+                                            Label {
+                                                id: outlineLabel
+                                                anchors.left: parent.left
+                                                anchors.right: parent.right
+                                                anchors.leftMargin: level > 1 ? (level - 1) * 10 : 0
+                                                text: content.length > 0 ? content : "Untitled"
+                                                font.pixelSize: 11
+                                                elide: Text.ElideRight
+                                                color: outlineItemMa.containsMouse ? "#1565C0" : "#616161"
+                                            }
+
+                                            MouseArea {
+                                                id: outlineItemMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    blockListView.positionViewAtIndex(outlineItem.index, ListView.Beginning)
                                                 }
                                             }
-                                            Label {
-                                                anchors.verticalCenter: parent.verticalCenter
-                                                text: modelData.label
-                                                font.pixelSize: 11
-                                                color: toolBtn.hovered ? "#333333" : "#616161"
-                                            }
                                         }
-                                        background: Rectangle {
-                                            radius: 12
-                                            color: toolBtn.hovered ? "#EBEBEB" : "transparent"
-                                        }
-                                        onClicked: documentModel.insertNode(documentModel.nodeCount(), modelData.type)
-                                        ToolTip.visible: hovered
-                                        ToolTip.delay: 500
-                                        ToolTip.text: "Add " + modelData.label.toLowerCase() + " block at end"
-                                    }
-                                }
-                            }
-                        }
-
-                        // ── Content area: block editor OR raw text ────────────────
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-
-                            // Block editor
-                            BlockListView {
-                                anchors.fill: parent
-                                anchors.leftMargin: 12
-                                anchors.rightMargin: 12
-                                anchors.topMargin: 4
-                                sourceModel: documentModel
-                                visible: !rawEditMode
-                            }
-
-                            // Raw Typst editor
-                            Rectangle {
-                                anchors.fill: parent
-                                visible: rawEditMode
-                                color: "#1E1E1E"
-
-                                ScrollView {
-                                    anchors.fill: parent
-                                    clip: true
-
-                                    TextArea {
-                                        id: rawEditor
-                                        readOnly: true
-                                        wrapMode: TextArea.Wrap
-                                        font.family: "monospace"
-                                        font.pixelSize: 12
-                                        color: "#D4D4D4"
-                                        selectionColor: root.accentColor
-                                        selectedTextColor: "white"
-                                        leftPadding: 16
-                                        topPadding: 12
-                                        background: null
                                     }
                                 }
                             }

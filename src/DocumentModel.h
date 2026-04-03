@@ -36,9 +36,7 @@ public:
         SuffixRole,
         TypeColorRole,
         TypeBgRole,
-        TypeHoverBgRole,
-        OutlineIndentRole,
-        OutlineTextRole
+        TypeHoverBgRole
     };
 
     explicit DocumentModel(QObject *parent = nullptr);
@@ -55,6 +53,7 @@ public:
     Q_INVOKABLE void changeNodeType(int row, int newType);
     Q_INVOKABLE int nodeCount() const;
     Q_INVOKABLE void insertNodeBelow(int row, int nodeType);
+    Q_INVOKABLE void splitNode(int row, int cursorPos);
 
     Q_INVOKABLE void setNodeContent(int row, const QString &value);
     Q_INVOKABLE void setNodeLevel(int row, int value);
@@ -96,6 +95,7 @@ signals:
     void requestSaveAs();
     void activeParagraphIndexChanged();
     void activeCursorPositionChanged();
+    void focusRequested(int row);
 
 private:
     void scheduleSerialization();

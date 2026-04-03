@@ -4,13 +4,80 @@ import QtQuick.Controls
 ListView {
     id: blockListView
     clip: true
-    spacing: 6
+    spacing: 2
     cacheBuffer: 2000
 
     property var sourceModel
 
     model: sourceModel
     delegate: BlockDelegate {}
+
+    // ── Focus management ──────────────────────────────────────────────────
+    // Focus a specific block's text input after model changes
+    function focusBlock(row) {
+        focusTimer.targetRow = row
+        focusTimer.restart()
+    }
+
+    Timer {
+        id: focusTimer
+        interval: 50
+        property int targetRow: -1
+        onTriggered: {
+            if (targetRow < 0 || targetRow >= blockListView.count) return
+            var item = blockListView.itemAtIndex(targetRow)
+            if (!item) {
+                // Item may not be instantiated yet, scroll to it first
+                blockListView.positionViewAtIndex(targetRow, ListView.Contain)
+                retryTimer.restart()
+                return
+            }
+            focusBlockItem(item)
+        }
+    }
+
+    Timer {
+        id: retryTimer
+        interval: 50
+        onTriggered: {
+            var item = blockListView.itemAtIndex(focusTimer.targetRow)
+            if (item) focusBlockItem(item)
+        }
+    }
+
+    function focusBlockItem(delegateItem) {
+        // The delegate has a Loader (plainLoader or cardLoader) whose item has forceActiveFocus
+        // Walk the children to find the loaded block component
+        var loader = findLoader(delegateItem)
+        if (loader && loader.item && loader.item.forceActiveFocus) {
+            loader.item.forceActiveFocus()
+        }
+    }
+
+    function findLoader(item) {
+        // Search for a Loader with a loaded item that has forceActiveFocus
+        for (var i = 0; i < item.children.length; i++) {
+            var child = item.children[i]
+            // Check if it's a RowLayout (contentRow)
+            for (var j = 0; j < child.children.length; j++) {
+                var inner = child.children[j]
+                for (var k = 0; k < inner.children.length; k++) {
+                    var loader = inner.children[k]
+                    if (loader.item && loader.item.forceActiveFocus) {
+                        return loader
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    Connections {
+        target: documentModel
+        function onFocusRequested(row) {
+            blockListView.focusBlock(row)
+        }
+    }
 
     // ── Drag state ──────────────────────────────────────────────────────────
     property bool dragActive: false
@@ -237,7 +304,7 @@ ListView {
 
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Use the sidebar to add a title or paragraph"
+            text: "Type / to insert a block"
             font.pixelSize: 12
             color: "#BDBDBD"
         }

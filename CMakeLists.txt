@@ -72,7 +72,8 @@ qt_add_qml_module(LexTyp
         qml/blocks/ParagraphBlock.qml
         qml/blocks/CitationBlock.qml
         qml/blocks/SectionBlock.qml
-        qml/blocks/BlockToolbar.qml
+        qml/blocks/SlashMenu.qml
+        qml/blocks/CitationPicker.qml
         qml/blocks/BlockDelegate.qml
         qml/blocks/BlockListView.qml
     NO_CACHEGEN

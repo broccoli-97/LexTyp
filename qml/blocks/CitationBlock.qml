@@ -125,4 +125,8 @@ Item {
 
         Item { Layout.fillWidth: true }
     }
+
+    function forceActiveFocus() {
+        keyInput.forceActiveFocus()
+    }
 }

@@ -27,11 +27,8 @@ Rectangle {
     signal saveClicked()
     signal exportTypstClicked()
     signal settingsClicked()
-    signal outlineClicked()
     signal referencesClicked()
     signal loadBibClicked()
-
-    property int currentIndex: 0
 
     ColumnLayout {
         anchors.fill: parent
@@ -55,30 +52,13 @@ Rectangle {
 
             Item { Layout.preferredHeight: 8 } // Spacer
 
-            // Outline
-            NavButton {
-                iconText: "\uD83D\uDCDC" // Scroll (outline)
-                label: "Outline"
-                showLabel: navBar.expanded
-                toolTip: "Document Outline"
-                active: navBar.currentIndex === 0
-                onClicked: {
-                    navBar.currentIndex = 0
-                    navBar.outlineClicked()
-                }
-            }
-
             // References
             NavButton {
                 iconText: "\uD83D\uDCDA" // Books (references)
                 label: "References"
                 showLabel: navBar.expanded
                 toolTip: "Reference Library"
-                active: navBar.currentIndex === 1
-                onClicked: {
-                    navBar.currentIndex = 1
-                    navBar.referencesClicked()
-                }
+                onClicked: navBar.referencesClicked()
             }
 
             Item { Layout.preferredHeight: 8 } // Spacer
@@ -160,7 +140,6 @@ Rectangle {
                 toolTip: "Settings"
                 active: navBar.currentIndex === 2
                 onClicked: {
-                    // navBar.currentIndex = 2 // maybe we don't want to switch tab for settings?
                     navBar.settingsClicked()
                 }
             }
